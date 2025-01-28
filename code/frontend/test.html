@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slimme Parkeergarage Beheertoepassing</title>
+    <style>
+        /* Algemeen stijlen voor de pagina */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+        }
+
+        /* Container voor de plattegrond */
+        .plattegrond-container {
+            text-align: center;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+        }
+
+        h2 {
+            margin-bottom: 20px;
+        }
+
+        /* Grid voor de parkeerplaatsen */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); /* Flexibele kolommen */
+            grid-gap: 10px;
+            margin-top: 20px;
+            width: 80vw;
+            max-width: 1200px; /* Max breedte */
+        }
+
+        /* Stijl voor individuele parkeerplaatsen */
+        .parkeervak {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border-radius: 4px;
+            font-weight: bold;
+            color: white;
+            cursor: pointer;
+        }
+
+        /* Kleurcoderingen voor de parkeerstatus */
+        .beschikbaar {
+            background-color: green;
+        }
+
+        .bezet {
+            background-color: red;
+        }
+
+        .gereserveerd {
+            background-color: yellow;
+        }
+
+        /* Stijl voor de parkeerplaatsnummer */
+        .parkeervak span {
+            font-size: 16px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="plattegrond-container">
+        <h2>Plattegrond Parkeergarage</h2>
+        <div class="grid" id="parkerenGrid"></div> <!-- Dynamische grid wordt hier geladen -->
+    </div>
+
+    <script>
+        // Aantal parkeerplaatsen dat je wilt genereren
+        const aantalParkeerplaatsen = 100; // Je kunt dit aantal aanpassen naar wens
+
+        // Functie om een parkeerplaats te genereren
+        function maakParkeerplaats(id, status) {
+            const parkeervak = document.createElement('div');
+            parkeervak.classList.add('parkeervak', status);
+            parkeervak.innerHTML = `<span>${id}</span>`;
+            return parkeervak;
+        }
+
+        // Functie om de plattegrond dynamisch te genereren
+        function genereerPlattegrond(aantal) {
+            const gridContainer = document.getElementById('parkerenGrid');
+            gridContainer.innerHTML = ''; // Leeg de grid
+
+            // Status lijst voor de parkeerplaatsen: beschikbaar, bezet, gereserveerd
+            const statussen = ['beschikbaar', 'bezet', 'gereserveerd'];
+
+            // Maak parkeerplaatsen en voeg ze toe aan de grid
+            for (let i = 1; i <= aantal; i++) {
+                const randomStatus = statussen[Math.floor(Math.random() * statussen.length)];
+                const parkeervak = maakParkeerplaats(i, randomStatus);
+                gridContainer.appendChild(parkeervak);
+            }
+        }
+
+        // Genereer de plattegrond met het opgegeven aantal parkeerplaatsen
+        genereerPlattegrond(aantalParkeerplaatsen);
+    </script>
+
+</body>
+</html>
