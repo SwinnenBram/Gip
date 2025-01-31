@@ -139,9 +139,15 @@ def login_user():
 
     gebruiker = Gebruiker.query.filter_by(email=email).first()
     if gebruiker and check_password_hash(gebruiker.wachtwoord, wachtwoord):
-        # Maak een JWT-token voor de ingelogde gebruiker
         access_token = create_access_token(identity=gebruiker.id)
-        return jsonify({'access_token': access_token}), 200
+        return jsonify({
+            'access_token': access_token,
+            'user': {
+                'id': gebruiker.id,
+                'naam': gebruiker.naam,
+                'email': gebruiker.email
+            }
+        }), 200
     return jsonify({'message': 'Ongeldige inloggegevens'}), 401
 
 @app.route('/api/user/<int:user_id>', methods=['GET'])
@@ -156,19 +162,35 @@ def get_user(user_id):
         }), 200
     return jsonify({'message': 'Gebruiker niet gevonden'}), 404
 
+@app.route('/api/dashboard', methods=['GET'])
+@jwt_required()
+def dashboard():
+    user_id = get_jwt_identity()
+    gebruiker = Gebruiker.query.get(user_id)
+    
+    if gebruiker:
+        return jsonify({
+            'message': f"Hey {gebruiker.naam}, met e-mail {gebruiker.email}, welkom dat je er bent! dit is de id {gebruiker.id}"
+        }), 200
+    
+    return jsonify({'message': 'Gebruiker niet gevonden'}), 404
+
+
 @app.route('/api/voertuigen', methods=['POST'])
+@jwt_required()
 def add_voertuig():
-    data = request.get_json()
+    gebruikerid = get_jwt_identity()  # Haal de gebruiker id op uit de JWT
+    data = request.get_json()  # Haal de gegevens uit de body van het verzoek
     nummerplaat = data.get('nummerplaat')
-    gebruiker_id = data.get('gebruiker_id')
     grootte = data.get('grootte')
     is_elektrisch = data.get('is_elektrisch', False)
     heeft_handicapkaart = data.get('heeft_handicapkaart', False)
 
+    # Voeg het voertuig toe aan de database
     try:
         voertuig = Voertuig(
             nummerplaat=nummerplaat,
-            gebruiker_id=gebruiker_id,
+            gebruiker_id=gebruikerid,
             grootte=grootte,
             is_elektrisch=is_elektrisch,
             heeft_handicapkaart=heeft_handicapkaart
@@ -180,16 +202,26 @@ def add_voertuig():
         db.session.rollback()
         return jsonify({'message': 'Fout bij het toevoegen van het voertuig', 'error': str(e)}), 500
     
-@app.route('/api/voertuigen/<int:gebruiker_id>', methods=['GET'])
-def get_voertuigen(gebruiker_id):
-    voertuigen = Voertuig.query.filter_by(gebruiker_id=gebruiker_id).all()
+@app.route('/api/voertuigen', methods=['GET'])
+@jwt_required()
+def get_voertuigen():
+    gebruikerid = get_jwt_identity()  # Haal het gebruiker id op uit de JWT
+    voertuigen = Voertuig.query.filter_by(gebruiker_id=gebruikerid).all() 
+    print(voertuigen, gebruikerid) # Filter voertuigen op gebruiker_id
+    
+    # Als er geen voertuigen zijn gevonden, geef dan een lege lijst terug
     if voertuigen:
-        voertuigen_list = [
-            {'nummerplaat': v.nummerplaat, 'grootte': v.grootte, 'is_elektrisch': v.is_elektrisch, 'heeft_handicapkaart': v.heeft_handicapkaart}
-            for v in voertuigen
-        ]
-        return jsonify(voertuigen_list), 200
-    return jsonify({'message': 'Geen voertuigen gevonden voor deze gebruiker'}), 404
+        return jsonify([
+            {
+                'nummerplaat': voertuig.nummerplaat,
+                'grootte': voertuig.grootte,
+                'is_elektrisch': voertuig.is_elektrisch,
+                'heeft_handicapkaart': voertuig.heeft_handicapkaart
+            } for voertuig in voertuigen
+        ]), 200
+    
+    return jsonify({'message': 'Geen voertuigen gevonden'}), 404
+
 
 @app.route('/api/reservaties', methods=['POST'])
 def create_reservatie():
@@ -272,6 +304,20 @@ def bevestiging_email():
         return jsonify({'message': 'Bevestigingsmail succesvol verzonden!'}), 200
     except Exception as e:
         return jsonify({'message': 'Fout bij het verzenden van de bevestigingsmail', 'error': str(e)}), 500
+    
+@app.route('/api/user', methods=['GET'])
+@jwt_required()
+def get_current_user():
+    user_id = get_jwt_identity()
+    gebruiker = Gebruiker.query.get(user_id)
+    if gebruiker:
+        return jsonify({
+            'id': gebruiker.id,
+            'naam': gebruiker.naam,
+            'email': gebruiker.email
+        }), 200
+    return jsonify({'message': 'Gebruiker niet gevonden'}), 404
+
     
 
 # Start de server

@@ -19,18 +19,25 @@ const Header = () => {
         <Link to="/" className="navbar-logo">Smart Parking</Link>
         <ul className="navbar-menu">
           {/* Altijd tonen: Register en Login */}
-          <li className="navbar-item">
-            <Link to="/register" className="navbar-link">Register</Link>
-          </li>
-          <li className="navbar-item">
-            <Link to="/login" className="navbar-link">Login</Link>
-          </li>
+          {!token && (
+            <>
+              <li className="navbar-item">
+                <Link to="/register" className="navbar-link">Register</Link>
+              </li>
+              <li className="navbar-item">
+                <Link to="/login" className="navbar-link">Login</Link>
+              </li>
+            </>
+          )}
 
           {/* Alleen tonen als de gebruiker ingelogd is */}
           {token && (
             <>
               <li className="navbar-item">
                 <Link to="/dashboard" className="navbar-link">Dashboard</Link>
+              </li>
+              <li className="navbar-item">
+                <Link to="/vehicle-management" className="navbar-link">Voertuigen</Link> {/* Link toegevoegd */}
               </li>
               {/* Uitlogknop (pictogram of tekst) */}
               <li className="navbar-item">
