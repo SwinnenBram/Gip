@@ -9,7 +9,7 @@ from email.mime.text import MIMEText
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["http://localhost:3001"], supports_credentials=True)
 
 # Database configuratie
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost/parkeergarage_beheer'
@@ -202,7 +202,7 @@ def add_voertuig():
         db.session.rollback()
         return jsonify({'message': 'Fout bij het toevoegen van het voertuig', 'error': str(e)}), 500
     
-@app.route('/api/voertuigen', methods=['GET'])
+@app.route('/api/voertuigenzoeken', methods=['GET'])
 @jwt_required()
 def get_voertuigen():
     gebruikerid = get_jwt_identity()  # Haal het gebruiker id op uit de JWT
@@ -221,6 +221,53 @@ def get_voertuigen():
         ]), 200
     
     return jsonify({'message': 'Geen voertuigen gevonden'}), 404
+
+# Route om een voertuig te bewerken op basis van nummerplaat
+@app.route('/api/voertuigen/<string:nummerplaat>', methods=['PUT'])
+@jwt_required()
+def update_voertuig(nummerplaat):
+    gebruikerid = get_jwt_identity()  # Haal de gebruiker id op uit de JWT
+    data = request.get_json()  # Haal de gegevens uit de body van het verzoek
+    
+    # Haal het voertuig op
+    voertuig = Voertuig.query.filter_by(nummerplaat=nummerplaat, gebruiker_id=gebruikerid).first()
+    if voertuig is None:
+        return jsonify({'message': 'Voertuig niet gevonden'}), 404
+
+    # Werk de voertuiggegevens bij
+    voertuig.grootte = data.get('grootte', voertuig.grootte)
+    voertuig.is_elektrisch = data.get('is_elektrisch', voertuig.is_elektrisch)
+    voertuig.heeft_handicapkaart = data.get('heeft_handicapkaart', voertuig.heeft_handicapkaart)
+    
+    try:
+        db.session.commit()
+        return jsonify({'message': 'Voertuig succesvol bijgewerkt!'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Fout bij het bijwerken van het voertuig', 'error': str(e)}), 500
+
+
+# Route om een voertuig te verwijderen op basis van nummerplaat
+@app.route('/api/voertuigen/<string:nummerplaat>', methods=['DELETE'])
+@jwt_required()
+def delete_voertuig(nummerplaat):
+    gebruiker_id = get_jwt_identity()
+
+    # Zoek het voertuig op basis van nummerplaat
+    voertuig = Voertuig.query.filter_by(nummerplaat=nummerplaat, gebruiker_id=gebruiker_id).first()
+
+    if not voertuig:
+        return jsonify({'message': 'Voertuig niet gevonden'}), 404
+
+    try:
+        db.session.delete(voertuig)
+        db.session.commit()
+        return jsonify({'message': 'Voertuig succesvol verwijderd!'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Fout bij het verwijderen van het voertuig', 'error': str(e)}), 500
+    
+
 
 
 @app.route('/api/reservaties', methods=['POST'])
@@ -316,9 +363,7 @@ def get_current_user():
             'naam': gebruiker.naam,
             'email': gebruiker.email
         }), 200
-    return jsonify({'message': 'Gebruiker niet gevonden'}), 404
-
-    
+    return jsonify({'message': 'Gebruiker niet gevonden'}), 404  
 
 # Start de server
 if __name__ == '__main__':

@@ -11,6 +11,7 @@ const VehicleManagement = () => {
     is_elektrisch: false,
     heeft_handicapkaart: false
   });
+  const [editMode, setEditMode] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -18,7 +19,7 @@ const VehicleManagement = () => {
       const token = localStorage.getItem('token');  // Haal de token op uit localStorage
 
       try {
-        const response = await axios.get('http://localhost:5000/api/voertuigen', {
+        const response = await axios.get('http://localhost:5000/api/voertuigenzoeken', {
             headers: {
               Authorization: `Bearer ${localStorage.getItem('token')}` // Voeg het token toe aan de headers voor authenticatie
             }
@@ -53,27 +54,70 @@ const VehicleManagement = () => {
     }
 
     try {
-      // Stuur een POST-aanroep naar de backend om het voertuig toe te voegen
-      const response = await axios.post('http://localhost:5000/api/voertuigen', newVoertuig, {
+      if (editMode) {
+        // Bewerk een bestaand voertuig
+        const response = await axios.put(`http://localhost:5000/api/voertuigen/${newVoertuig.nummerplaat}`, newVoertuig, {
+          headers: {
+            Authorization: `Bearer ${token}`  // Voeg de JWT-token toe aan de headers
+          }
+        });
+        alert(response.data.message);
+        // Werk het voertuig in de lijst bij
+        setVoertuigen((prevVoertuigen) => prevVoertuigen.map(voertuig => 
+          voertuig.nummerplaat === newVoertuig.nummerplaat ? newVoertuig : voertuig
+        ));
+      } else {
+        // Voeg een nieuw voertuig toe
+        const response = await axios.post('http://localhost:5000/api/voertuigen', newVoertuig, {
+          headers: {
+            Authorization: `Bearer ${token}`  // Voeg de JWT-token toe aan de headers
+          }
+        });
+
+        alert(response.data.message);  // Toon een bericht als het voertuig succesvol is toegevoegd
+        // Voeg het nieuwe voertuig toe aan de lijst zonder de pagina opnieuw te laden
+        setVoertuigen((prevVoertuigen) => [...prevVoertuigen, newVoertuig]);
+      }
+
+      // Reset het formulier en schakel editMode uit
+      setNewVoertuig({
+        nummerplaat: '',
+        grootte: '',
+        is_elektrisch: false,
+        heeft_handicapkaart: false
+      });
+      setEditMode(false);
+
+    } catch (error) {
+      console.error('Fout bij het toevoegen of bijwerken van het voertuig:', error);
+      alert('Er is een probleem met het toevoegen of bijwerken van het voertuig. Probeer het later opnieuw.');
+    }
+  };
+
+  const handleEdit = (voertuig) => {
+    setNewVoertuig(voertuig);
+    setEditMode(true);
+  };
+
+  const handleDelete = async (nummerplaat) => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      const response = await axios.delete(`http://localhost:5000/api/voertuigen/${nummerplaat}`, {
         headers: {
-          Authorization: `Bearer ${token}`  // Voeg de JWT-token toe aan de headers
+          Authorization: `Bearer ${token}`
         }
       });
 
-      alert(response.data.message);  // Toon een bericht als het voertuig succesvol is toegevoegd
-
-      // Voeg het nieuwe voertuig toe aan de lijst zonder de pagina opnieuw te laden
-      setVoertuigen((prevVoertuigen) => [...prevVoertuigen, newVoertuig]);
-      setNewVoertuig({
-        nummerplaat: '',
-        grootte: '',  // Reset de grootte naar een lege waarde
-        is_elektrisch: false,
-        heeft_handicapkaart: false
-      });  // Reset het formulier
-
+      alert(response.data.message);
+      setVoertuigen((prevVoertuigen) => prevVoertuigen.filter(voertuig => voertuig.nummerplaat !== nummerplaat));
     } catch (error) {
-      console.error('Fout bij het toevoegen van het voertuig:', error);
-      alert('Er is een probleem met het toevoegen van het voertuig. Probeer het later opnieuw.');
+      console.error('Fout bij het verwijderen van het voertuig:', error);
+      alert('Er is een probleem met het verwijderen van het voertuig. Probeer het later opnieuw.');
     }
   };
 
@@ -81,29 +125,7 @@ const VehicleManagement = () => {
     <div className="container">
       <h1>Mijn Voertuigen</h1>
 
-      {loading ? (
-        <p>Loading...</p>  // Toon een laadbericht
-      ) : (
-        <>
-          {voertuigen.length > 0 ? (
-            <ul>
-              {voertuigen.map((voertuig, index) => (
-                <li key={index}>
-                  <p><strong>Nummerplaat:</strong> {voertuig.nummerplaat}</p>
-                  <p><strong>Grootte:</strong> {voertuig.grootte}</p>
-                  <p><strong>Elektrisch:</strong> {voertuig.is_elektrisch ? 'Ja' : 'Nee'}</p>
-                  <p><strong>Handicapkaart:</strong> {voertuig.heeft_handicapkaart ? 'Ja' : 'Nee'}</p>
-                  <hr />
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p>Je hebt geen voertuigen geregistreerd.</p>
-          )}
-        </>
-      )}
-
-      <h2>Voertuig Toevoegen</h2>
+      <h2>{editMode ? 'Voertuig Bijwerken' : 'Voertuig Toevoegen'}</h2>
       <form onSubmit={handleSubmit}>
         <label>
           Nummerplaat:
@@ -113,6 +135,7 @@ const VehicleManagement = () => {
             value={newVoertuig.nummerplaat}
             onChange={handleChange}
             required
+            disabled={editMode}
           />
         </label>
         <label>
@@ -147,8 +170,32 @@ const VehicleManagement = () => {
             onChange={handleChange}
           />
         </label>
-        <button type="submit">Voertuig Toevoegen</button>
+        <button type="submit">{editMode ? 'Bijwerken' : 'Voertuig Toevoegen'}</button>
       </form>
+
+      {loading ? (
+        <p>Loading...</p>
+      ) : (
+        <>
+          {voertuigen.length > 0 ? (
+            <ul>
+              {voertuigen.map((voertuig, index) => (
+                <li key={index}>
+                  <p><strong>Nummerplaat:</strong> {voertuig.nummerplaat}</p>
+                  <p><strong>Grootte:</strong> {voertuig.grootte}</p>
+                  <p><strong>Elektrisch:</strong> {voertuig.is_elektrisch ? 'Ja' : 'Nee'}</p>
+                  <p><strong>Handicapkaart:</strong> {voertuig.heeft_handicapkaart ? 'Ja' : 'Nee'}</p>
+                  <button onClick={() => handleEdit(voertuig)}>Bewerk</button>
+                  <button onClick={() => handleDelete(voertuig.nummerplaat)}>Verwijder</button>
+                  <hr />
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p>Je hebt geen voertuigen geregistreerd.</p>
+          )}
+        </>
+      )}
     </div>
   );
 };
