@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ondergrondse Parking Plattegrond</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+        }
+        .parking {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 10px;
+            background-color: #333;
+            padding: 10px;
+        }
+        .zone {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 20px;
+            font-weight: bold;
+            color: white;
+        }
+        .zone:nth-child(1) { background-color: red; }
+        .zone:nth-child(2) { background-color: orange; }
+        .zone:nth-child(3) { background-color: yellow; }
+        .zone:nth-child(4) { background-color: green; }
+        .zone:nth-child(5) { background-color: blue; }
+        .zone:nth-child(6) { background-color: indigo; }
+        .zone:nth-child(7) { background-color: violet; }
+        .zone:nth-child(8) { background-color: brown; }
+        .zone:nth-child(9) { background-color: gray; }
+    </style>
+</head>
+<body>
+    <div class="parking">
+        <div class="zone">A</div>
+        <div class="zone">B</div>
+        <div class="zone">C</div>
+        <div class="zone">D</div>
+        <div class="zone">E</div>
+        <div class="zone">F</div>
+        <div class="zone">G</div>
+        <div class="zone">H</div>
+        <div class="zone">I</div>
+    </div>
+</body>
+</html>

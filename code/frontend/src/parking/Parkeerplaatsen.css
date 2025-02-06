@@ -1,0 +1,78 @@
+/* Container voor de pagina */
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    background-color: #f4f4f4;
+    height: 100vh;
+}
+
+/* Titel van de pagina */
+.title {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 20px;
+}
+
+/* Grid voor de parkeerplaatsen - 4 kolommen en 10 rijen */
+.parking-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr 1fr; /* 4 gelijke kolommen */
+    grid-template-rows: repeat(10, 1fr); /* 10 rijen */
+    gap: 20px; /* Vergrote ruimte tussen de parkeerplaatsen */
+    margin-top: 20px;
+    width: 90%; /* Beperk de breedte van de grid */
+    max-width: 1200px; /* Zorg voor een maximale breedte */
+    position: relative;
+}
+
+/* Stijlen voor elke parkeerplaats */
+.parkeerplaats {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 50px; /* Minder lang */
+    width: 120px; /* Breder */
+    font-size: 18px;
+    font-weight: bold;
+    color: white;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.3s, background-color 0.3s;
+}
+
+/* Kleur voor de status van de parkeerplaatsen */
+.parkeerplaats.beschikbaar {
+    background-color: green;
+}
+
+.parkeerplaats.bezet {
+    background-color: red;
+}
+
+/* Effect bij hover */
+.parkeerplaats:hover {
+    transform: scale(1.05);
+}
+
+/* Zwarte lijn tussen kolom 1 en 2, en tussen kolom 3 en 4 */
+.parking-grid::before, .parking-grid::after {
+    content: "";
+    position: absolute;
+    background-color: black;
+    height: 100%; /* De lijn beslaat de volledige hoogte van de grid */
+    width: 12px; /* Maak de lijn breder voor beter visueel effect */
+    top: 0;
+    bottom: 0;
+}
+
+/* Zwarte lijn tussen kolom 1 en 2 */
+.parking-grid::before {
+    left: calc(25% + 3px); /* Lijn verder naar rechts verschoven met 20px extra */
+}
+
+/* Zwarte lijn tussen kolom 3 en 4 */
+.parking-grid::after {
+    left: calc(75% + 40px); /* Lijn verder naar rechts verschoven met 20px extra */
+}

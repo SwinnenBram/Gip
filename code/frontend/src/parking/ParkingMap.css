@@ -1,0 +1,53 @@
+/* De container voor de parking grid */
+.parking-container {
+    display: flex;
+    justify-content: center; /* Horizontaal centreren */
+    align-items: center;     /* Verticaal centreren */
+    height: 100vh;           /* Zorg dat de container de volledige hoogte van het scherm vult */
+    flex-direction: column;  /* Maak de container een kolom zodat we de knop onder de grid plaatsen */
+}
+
+/* De grid zelf */
+.parking {
+    display: grid;
+    grid-template-columns: repeat(3, 100px);  /* 3 kolommen */
+    grid-template-rows: repeat(3, 100px);     /* 3 rijen */
+    gap: 10px;                                /* Ruimte tussen de vakken */
+    padding: 10px;
+    background-color: #333;
+    border-radius: 8px;
+}
+
+/* Stijlen voor de individuele zones (de klikbare vakken) */
+.zone {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 20px;
+    font-weight: bold;
+    color: white;
+    border-radius: 8px;  /* Optioneel voor afgeronde hoeken */
+    cursor: pointer;     /* Laat zien dat het klikbare elementen zijn */
+    transition: transform 0.2s; /* Effect bij hover */
+}
+
+.zone:hover {
+    transform: scale(1.1); /* Vergroot het vakje een beetje bij hover voor effect */
+}
+
+/* Stijlen voor de terugknop */
+.back-button {
+    margin-top: 20px; /* Zorg dat de knop onder de grid komt */
+    padding: 10px 20px;
+    background-color: #4CAF50; /* Groene kleur voor de knop */
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.back-button:hover {
+    background-color: #45a049; /* Donkerdere groene kleur bij hover */
+}

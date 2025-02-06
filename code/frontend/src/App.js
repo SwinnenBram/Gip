@@ -6,7 +6,11 @@ import Header from './components/Header';
 import Register from './components/Register';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
-import VehicleManagement from './components/VehicleManagement';  // Importeer de nieuwe pagina
+import VehicleManagement from './components/VehicleManagement';
+import Reservation from './components/Reservation';
+import Verdiep1 from './parking/plattegrond-1';
+import Verdiep2 from './parking/plattegrond-2';
+import ParkeerplaatsenA from './parking/ParkingA'; // Nieuwe pagina voor Zone A
 
 // 🔹 ProtectedRoute: Zorgt dat alleen ingelogde gebruikers de pagina's zien
 const ProtectedRoute = ({ children }) => {
@@ -65,6 +69,40 @@ const App = () => {
                 <VehicleManagement />
               </ProtectedRoute>
             } 
+          />
+          <Route 
+            path="/reservation"  // ✅ Nieuwe route voor Reservation toegevoegd
+            element={
+              <ProtectedRoute>
+                <Reservation />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/verdiep-1"  // ✅ Nieuwe route voor Verdiep -1
+            element={
+              <ProtectedRoute>
+                <Verdiep1 />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/verdiep-2"  // ✅ Nieuwe route voor Verdiep -2
+            element={
+              <ProtectedRoute>
+                <Verdiep2 />
+              </ProtectedRoute>
+            } 
+          />
+          
+          {/* Nieuwe route voor Parkeerplaatsen - Zone A */}
+          <Route 
+            path="/parkeerplaatsen-a" 
+            element={
+              <ProtectedRoute>
+                <ParkeerplaatsenA />
+              </ProtectedRoute>
+            }
           />
         </Routes>
       </div>
