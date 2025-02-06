@@ -51,6 +51,10 @@
     background-color: red;
 }
 
+.parkeerplaats.gereserveerd {
+    background-color: blue; /* Voeg blauwe kleur toe voor gereserveerd */
+}
+
 /* Effect bij hover */
 .parkeerplaats:hover {
     transform: scale(1.05);
