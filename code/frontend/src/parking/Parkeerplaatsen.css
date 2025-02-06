@@ -32,8 +32,8 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 50px; /* Minder lang */
-    width: 120px; /* Breder */
+    height: 35px; /* Minder lang */
+    width: 100px; /* Breder */
     font-size: 18px;
     font-weight: bold;
     color: white;
@@ -69,10 +69,10 @@
 
 /* Zwarte lijn tussen kolom 1 en 2 */
 .parking-grid::before {
-    left: calc(25% + 3px); /* Lijn verder naar rechts verschoven met 20px extra */
+    left: calc(25% + 1px); /* Lijn verder naar rechts verschoven met 20px extra */
 }
 
 /* Zwarte lijn tussen kolom 3 en 4 */
 .parking-grid::after {
-    left: calc(75% + 40px); /* Lijn verder naar rechts verschoven met 20px extra */
+    left: calc(75% + 34px); /* Lijn verder naar rechts verschoven met 20px extra */
 }
