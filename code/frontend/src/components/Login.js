@@ -12,25 +12,24 @@ const Login = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage(''); // Reset foutmelding bij nieuwe poging
-
+  
     try {
       const response = await axios.post('http://localhost:5000/api/login', {
         email: email,
         wachtwoord: password,
       });
-
+  
       if (response.data.access_token) {
         console.log("Login succesvol, token ontvangen");
         localStorage.setItem('token', response.data.access_token);
-        localStorage.setItem('user', JSON.stringify(response.data.user)); 
-
-        // Token en gebruikersinfo opslaan
-        localStorage.setItem('token', response.data.access_token);
-
-        if (response.data.user) {
-          localStorage.setItem('user', JSON.stringify(response.data.user));
+  
+        // Sla de gebruiker ID apart op
+        const user = response.data.user;
+        if (user) {
+          localStorage.setItem('user_id', user.id);  // Zet de user_id apart in localStorage
+          localStorage.setItem('user', JSON.stringify(user)); // Sla de volledige user info op
         }
-
+  
         // Navigeren naar dashboard
         navigate('/dashboard');
       } else {
@@ -38,7 +37,7 @@ const Login = () => {
       }
     } catch (error) {
       console.error('Fout bij inloggen:', error);
-
+  
       if (error.response) {
         if (error.response.status === 401) {
           setErrorMessage('Ongeldige inloggegevens! Probeer het opnieuw.');

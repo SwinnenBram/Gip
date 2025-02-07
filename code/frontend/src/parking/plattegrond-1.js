@@ -4,17 +4,20 @@ import "./ParkingMap.css"; // Zorg ervoor dat deze CSS bestaat of gebruik Tailwi
 
 const zones = [
     { id: "A", color: "red", link: "/parkeerplaatsen-a" }, // Link naar de pagina voor Zone A
-    { id: "B", color: "orange", link: "/reserveren-b" },
-    { id: "C", color: "yellow", link: "/reserveren-c" },
-    { id: "D", color: "green", link: "/reserveren-d" },
-    { id: "E", color: "blue", link: "/reserveren-e" },
-    { id: "F", color: "indigo", link: "/reserveren-f" },
-    { id: "G", color: "violet", link: "/reserveren-g" },
-    { id: "H", color: "brown", link: "/reserveren-h" },
-    { id: "I", color: "gray", link: "/reserveren-i" },
+    { id: "B", color: "orange", link: "/parkeerplaatsen-b" },
+    { id: "C", color: "yellow", link: "/parkeerplaatsen-c" },
+    { id: "D", color: "green", link: "/parkeerplaatsen-d" },
+    { id: "E", color: "blue", link: "/parkeerplaatsen-e" },
+    { id: "F", color: "indigo", link: "/parkeerplaatsen-f" },
+    { id: "G", color: "violet", link: "/parkeerplaatsen-g" },
+    { id: "H", color: "brown", link: "/parkeerplaatsen-h" },
+    { id: "I", color: "gray", link: "/parkeerplaatsen-i" },
 ];
 
 const Plattegrond1 = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const datum = urlParams.get('datum'); // Haal de datum op uit de queryparameter
+
     return (
         <div className="parking-container">
             <div className="parking">
@@ -24,7 +27,8 @@ const Plattegrond1 = () => {
                         className="zone"
                         style={{ backgroundColor: zone.color }}
                     >
-                        <Link to={zone.link} className="zone-link">
+                        {/* Voeg de datum als queryparameter toe aan de zone-link */}
+                        <Link to={`${zone.link}?datum=${datum}`} className="zone-link">
                             {zone.id}
                         </Link>
                     </div>

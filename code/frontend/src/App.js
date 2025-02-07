@@ -11,6 +11,7 @@ import Reservation from './components/Reservation';
 import Verdiep1 from './parking/plattegrond-1';
 import Verdiep2 from './parking/plattegrond-2';
 import ParkeerplaatsenA from './parking/ParkingA'; // Nieuwe pagina voor Zone A
+import PlaceReservation from './components/PlaceReservation'; // Nieuwe reserveringspagina
 
 // 🔹 ProtectedRoute: Zorgt dat alleen ingelogde gebruikers de pagina's zien
 const ProtectedRoute = ({ children }) => {
@@ -63,7 +64,7 @@ const App = () => {
             } 
           />
           <Route 
-            path="/vehicle-management"  // ✅ Nieuwe route voor VehicleManagement toegevoegd
+            path="/vehicle-management"  
             element={
               <ProtectedRoute>
                 <VehicleManagement />
@@ -71,7 +72,7 @@ const App = () => {
             } 
           />
           <Route 
-            path="/reservation"  // ✅ Nieuwe route voor Reservation toegevoegd
+            path="/reservation"  
             element={
               <ProtectedRoute>
                 <Reservation />
@@ -79,7 +80,7 @@ const App = () => {
             } 
           />
           <Route 
-            path="/verdiep-1"  // ✅ Nieuwe route voor Verdiep -1
+            path="/verdiep-1"  
             element={
               <ProtectedRoute>
                 <Verdiep1 />
@@ -87,7 +88,7 @@ const App = () => {
             } 
           />
           <Route 
-            path="/verdiep-2"  // ✅ Nieuwe route voor Verdiep -2
+            path="/verdiep-2"  
             element={
               <ProtectedRoute>
                 <Verdiep2 />
@@ -101,6 +102,16 @@ const App = () => {
             element={
               <ProtectedRoute>
                 <ParkeerplaatsenA />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Nieuwe route voor reservering met geselecteerde parkeerplaats */}
+          <Route 
+            path="/place-reservation" 
+            element={
+              <ProtectedRoute>
+                <PlaceReservation />
               </ProtectedRoute>
             }
           />
