@@ -1,50 +1,83 @@
 import React, { useEffect, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom"; // Importeer useLocation voor het ophalen van de queryparameters
+import { useNavigate, useLocation } from "react-router-dom";
 import axios from "axios";
 import "./Parkeerplaatsen.css";
 
 const ParkeerplaatsenA = () => {
     const [parkeerplaatsen, setParkeerplaatsen] = useState([]);
+    const [loading, setLoading] = useState(true); // Laadstatus
+    const [error, setError] = useState(null); // Foutmelding opslaan
     const navigate = useNavigate();
-    const location = useLocation(); // Verkrijg de huidige locatie van de URL
+    const location = useLocation();
 
     // Haal de datum op uit de queryparameter
     const urlParams = new URLSearchParams(location.search);
-    const datum = urlParams.get("datum"); // Datum uit de URL queryparameter
+    const datum = urlParams.get("datum"); 
 
     useEffect(() => {
-        // Haal de parkeerplaatsen op van de API, inclusief datum in de queryparameters
         if (datum) {
-            axios.get(`http://localhost:5000/api/parkings?datum=${datum}&zone=A`)
+            setLoading(true);
+            setError(null); // Reset fouten bij nieuwe aanvraag
+    
+            // Haal het token uit localStorage (of waar het ook opgeslagen is)
+            const token = localStorage.getItem("token");
+    
+            // 🚗 **Stap 1: Haal parkeerplaatsen op**
+            axios.get(`http://localhost:5000/api/parkings?datum=${datum}&zone=A`, {
+                headers: {
+                    Authorization: `Bearer ${token}` // Voeg token toe aan de header
+                }
+            })
                 .then((response) => {
-                    setParkeerplaatsen(response.data); // Sla de parkeerplaatsen op
+                    setParkeerplaatsen(response.data);
+    
+                    // Log de volledige reserveringen
+                    const gereserveerdePlekken = response.data.filter(plek => plek.gereserveerd);
+                    console.log(`Gereserveerde parkeerplaatsen op ${datum}:`, gereserveerdePlekken);
+    
+                    // Als je de volledige details van de reserveringen wilt zien:
+                    gereserveerdePlekken.forEach(plek => {
+                        console.log(`Reservering details voor ${plek.locatie}:`);
+                        console.log(`Reservering ID: ${plek.reservatie_id}`);
+                        console.log(`Starttijd: ${plek.starttijd}`);
+                        console.log(`Eindtijd: ${plek.eindtijd}`);
+                        console.log(`Klant: ${plek.klant}`);
+                    });
                 })
                 .catch((error) => {
-                    console.error("Fout bij het ophalen van parkeerplaatsen:", error);
+                    console.error("❌ Fout bij het ophalen van parkeerplaatsen:", error);
+                    setError("Kan parkeerplaatsen niet laden.");
+                })
+                .finally(() => {
+                    setLoading(false);
                 });
         }
-    }, [datum]); // Effect triggeren wanneer de datum verandert
+    }, [datum]);
+    
+    
 
     const handleClick = (locatie) => {
-        // Navigeren naar place-reservation en de locatie van de parkeerplaats meegeven
-        navigate(`/place-reservation?plaatsLocatie=${locatie}&datum=${datum}`);  // Hier wordt de datum meegegeven
+        navigate(`/place-reservation?plaatsLocatie=${locatie}&datum=${datum}`);
     };
 
     return (
         <div className="container">
             <h1 className="title">Parkeerplaatsen - Zone A</h1>
-            <p>Geselecteerde datum: {datum}</p> {/* Toon de geselecteerde datum */}
+            <p>Geselecteerde datum: {datum}</p>
+
+            {/* Foutmelding tonen als er iets misgaat */}
+            {error && <p className="error">{error}</p>}
 
             <div className="parking-grid">
-                {/* Render de parkeerplaatsen met locatie in plaats van id */}
-                {parkeerplaatsen.length > 0 ? (
+                {loading ? (
+                    <p>Parkeerplaatsen laden...</p>
+                ) : parkeerplaatsen.length > 0 ? (
                     parkeerplaatsen.map((plek) => (
                         <div
                             key={plek.id}
                             className={`parkeerplaats ${plek.status}`} 
-                            onClick={() => handleClick(plek.locatie)} // Klik event toevoegen en locatie doorgeven
+                            onClick={() => handleClick(plek.locatie)}
                         >
-                            {/* Toon de locatie zoals "A10", "A11", etc. */}
                             {plek.locatie}
                         </div>
                     ))

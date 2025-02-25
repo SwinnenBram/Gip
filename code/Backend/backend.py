@@ -7,6 +7,9 @@ from werkzeug.security import check_password_hash
 import smtplib
 from email.mime.text import MIMEText
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token, get_jwt_identity
+import uuid
+import datetime
+
 
 app = Flask(__name__)
 CORS(app, origins=["http://localhost:3001"], supports_credentials=True)
@@ -55,6 +58,9 @@ class Reservatie(db.Model):
     eindtijd = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.Enum('actief', 'geannuleerd', 'voltooid'), default='actief')
     kosten = db.Column(db.Numeric(10, 2))
+
+# Relatie met de Parkeerplaats
+    parkeerplaats = db.relationship('Parkeerplaats', backref='reservaties', lazy=True)
 
 class Betaling(db.Model):
     __tablename__ = 'Betalingen'
@@ -170,7 +176,7 @@ def dashboard():
     
     if gebruiker:
         return jsonify({
-            'message': f"Hey {gebruiker.naam}, met e-mail {gebruiker.email}, welkom dat je er bent! dit is de id {gebruiker.id}"
+            'message': f"Hey {gebruiker.naam}, met e-mail {gebruiker.email}, welkom dat je er bent!"
         }), 200
     
     return jsonify({'message': 'Gebruiker niet gevonden'}), 404
@@ -266,33 +272,229 @@ def delete_voertuig(nummerplaat):
     except Exception as e:
         db.session.rollback()
         return jsonify({'message': 'Fout bij het verwijderen van het voertuig', 'error': str(e)}), 500
+
+  
+@app.route('/api/parkings', methods=['GET'])
+def get_parking_spaces():
+    parkeerplaatsen = Parkeerplaats.query.all()
+    if parkeerplaatsen:
+        parking_list = [
+            {
+                'id': p.id,
+                'status': p.status,
+                'grootte': p.grootte,
+                'locatie': p.locatie,
+                'soort': p.soort
+            } for p in parkeerplaatsen
+        ]
+        return jsonify(parking_list), 200
+    return jsonify({'message': 'Geen parkeerplaatsen gevonden'}), 404
+
+@app.route('/api/parkings/status', methods=['GET'])
+def get_parking_status_for_day():
+    # Verkrijg de datum van de querystring
+    datum_str = request.args.get('datum')  # Bijvoorbeeld: '2025-02-07'
     
+    if not datum_str:
+        return jsonify({'message': 'Geen datum opgegeven'}), 400
+    
+    try:
+        # Converteer de string naar een datetime object
+        datum = datetime.strptime(datum_str, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'message': 'Ongeldige datumindeling, gebruik het formaat YYYY-MM-DD'}), 400
+
+    # Haal alle reserveringen op die betrekking hebben op de opgegeven datum
+    reservaties = Reservatie.query.filter(
+        (Reservatie.starttijd.date() <= datum) & (Reservatie.eindtijd.date() >= datum)
+    ).all()
+
+    # Maak een dictionary voor parkeerplaatsen om de status bij te houden
+    parkeerplaats_statusen = {p.id: p.status for p in Parkeerplaats.query.all()}
+
+    # Werk de status van de parkeerplaatsen bij op basis van de reserveringen
+    for reservatie in reservaties:
+        parkeerplaats = Parkeerplaats.query.get(reservatie.parkeerplaats_id)
+        if parkeerplaats:
+            parkeerplaats_statusen[parkeerplaats.id] = 'bezet'
+
+    # Maak een lijst met parkeerplaatsen en hun status voor de opgegeven datum
+    parking_list = [
+        {
+            'id': p.id,
+            'status': parkeerplaats_statusen.get(p.id, 'beschikbaar'),
+            'grootte': p.grootte,
+            'locatie': p.locatie,
+            'soort': p.soort
+        } for p in Parkeerplaats.query.all()
+    ]
+    
+    return jsonify(parking_list), 200
+
+@app.route('/api/parkings', methods=['GET'])
+def get_parkings():
+    datum_str = request.args.get('datum')
+    zone = request.args.get('zone')
+
+    if not datum_str:
+        return jsonify({'message': 'Geen datum opgegeven'}), 400
+
+    # Zorg ervoor dat de datum in het juiste formaat is
+    if len(datum_str) != 10 or datum_str[4] != '-' or datum_str[7] != '-':
+        return jsonify({'message': 'Ongeldige datumindeling, gebruik het formaat YYYY-MM-DD'}), 400
+
+    # Haal de reserveringen op voor de opgegeven datum
+    reservaties = Reservatie.query.filter(
+        (Reservatie.starttijd.ilike(f'{datum_str}%')) & (Reservatie.eindtijd.ilike(f'{datum_str}%'))
+    ).all()
+
+    parkeerplaatsen = []
+    for reservatie in reservaties:
+        parkeerplaatsen.append({
+            'id': reservatie.parkeerplaats_id,
+            'locatie': reservatie.parkeerplaats.naam,
+            'gereserveerd': True,  # Aangegeven dat deze plek gereserveerd is
+            'status': 'gereserveerd',
+            'reservatie_id': reservatie.id,  # Voeg het reservering ID toe
+            'starttijd': reservatie.starttijd,  # Voeg de starttijd van de reservering toe
+            'eindtijd': reservatie.eindtijd,  # Voeg de eindtijd van de reservering toe
+            'klant': reservatie.klant.naam if reservatie.klant else None,  # Voeg de naam van de klant toe
+        })
+
+    # Voeg ongereserveerde parkeerplaatsen toe (optioneel)
+    overige_parkeerplaatsen = Parkeerplaats.query.filter(
+        Parkeerplaats.zone == zone
+    ).all()
+
+    for parkeerplaats in overige_parkeerplaatsen:
+        parkeerplaatsen.append({
+            'id': parkeerplaats.id,
+            'locatie': parkeerplaats.naam,
+            'gereserveerd': False,
+            'status': 'beschikbaar'
+        })
+
+    return jsonify(parkeerplaatsen), 200
+
+
+
+@app.route('/api/reservaties-datum', methods=['GET'])
+@jwt_required()
+def get_reservaties_datum():
+    current_user_id = get_jwt_identity()  # Haal de gebruikers-ID uit het JWT-token
+
+    # Verkrijg de datum uit de query parameters (optioneel, standaard is None)
+    datum_param = request.args.get('datum', None)
+
+    # Zet de datum om naar een datetime object als deze meegegeven is
+    if datum_param:
+        try:
+            datum = datetime.strptime(datum_param, '%Y-%m-%d')
+        except ValueError:
+            return jsonify({'message': 'Ongeldig datumformaat. Gebruik YYYY-MM-DD.'}), 400
+    else:
+        datum = None  # Geen datum meegegeven, dus geen filteren op datum
+
+    # Begin de query om actieve reserveringen van de gebruiker op te halen
+    query = Reservatie.query.filter_by(gebruiker_id=current_user_id, status='actief')
+
+    if datum:
+        # Voeg datumfilter toe aan de query
+        query = query.filter(Reservatie.starttijd.date() == datum.date())
+
+    reservaties = query.all()
+
+    if reservaties:
+        reservaties_list = [
+            {'reservatienummer': r.reservatienummer, 'starttijd': r.starttijd, 'eindtijd': r.eindtijd}
+            for r in reservaties
+        ]
+        return jsonify(reservaties_list), 200
+    
+    return jsonify({'message': 'Geen actieve reserveringen gevonden'}), 404
 
 
 
 @app.route('/api/reservaties', methods=['POST'])
 def create_reservatie():
     data = request.get_json()
-    gebruiker_id = data.get('gebruiker_id')
-    voertuig_id = data.get('voertuig_id')
-    parkeerplaats_id = data.get('parkeerplaats_id')
+    gebruiker_id = data.get('gebruiker_id')  # Verkrijg de gebruiker_id uit de request
+    voertuig_nummerplaat = data.get('voertuig_id')  # Zorg ervoor dat dit klopt
+    parkeerplaats_id = data.get('parkeerplaats_id')  # Verkrijg de locatiecode van de parkeerplaats (zoals 'A15')
     starttijd = data.get('starttijd')
     eindtijd = data.get('eindtijd')
 
     try:
-        # Maak een nieuwe reservering
+        # Log de ontvangen data voor debugging
+        print(f"Ontvangen data: {data}")
+        print(f"Zoeken naar voertuig met nummerplaat: {voertuig_nummerplaat}")
+
+        # Zoek het voertuig op basis van de nummerplaat
+        voertuig = Voertuig.query.filter_by(nummerplaat=voertuig_nummerplaat).first()
+
+        # Log de query resultaat
+        print(f"Query resultaat: {voertuig}")
+
+        if voertuig is None:
+            print("Voertuig niet gevonden.")
+            return jsonify({'message': 'Voertuig niet gevonden op nummerplaat'}), 400
+
+        voertuig_id = voertuig.id
+        print(f"Voertuig gevonden: {voertuig}, ID: {voertuig_id}")
+
+        # Zoek de parkeerplaats op basis van de locatiecode (bijvoorbeeld 'A15')
+        parkeerplaats = Parkeerplaats.query.filter_by(locatie=parkeerplaats_id).first()
+
+        if parkeerplaats is None:
+            print(f"Fout: Parkeerplaats met locatiecode {parkeerplaats_id} bestaat niet.")
+            return jsonify({'message': f'Parkeerplaats {parkeerplaats_id} bestaat niet.'}), 400
+
+        # Verkrijg de id van de gevonden parkeerplaats
+        parkeerplaats_id = parkeerplaats.id
+        print(f"Parkeerplaats gevonden: {parkeerplaats}, ID: {parkeerplaats_id}")
+
+        # Converteer de tijd naar datetime objecten
+        starttijd = datetime.datetime.strptime(starttijd, '%Y-%m-%dT%H:%M')
+        eindtijd = datetime.datetime.strptime(eindtijd, '%Y-%m-%dT%H:%M')
+
+        # Log de geconverteerde tijden
+        print(f"Starttijd: {starttijd}, Eindtijd: {eindtijd}")
+
+        # Bereken de kosten
+        kosten_per_uur = 5.00
+        tijd_duur = eindtijd - starttijd
+        aantal_uren = tijd_duur.total_seconds() / 3600  # Converteer naar uren
+        kosten = kosten_per_uur * aantal_uren
+
+        # Genereer een uniek reservatienummer
+        reservatienummer = str(uuid.uuid4())
+
+        # Maak de reservering
         reservatie = Reservatie(
-            gebruiker_id=gebruiker_id,
+            reservatienummer=reservatienummer,
+            gebruiker_id=gebruiker_id,  # Gebruik de ontvangen gebruiker_id
             voertuig_id=voertuig_id,
             parkeerplaats_id=parkeerplaats_id,
             starttijd=starttijd,
-            eindtijd=eindtijd
+            eindtijd=eindtijd,
+            kosten=kosten
         )
+
+        # Log de reservering voor het toevoegen aan de database
+        print(f"Reservering klaar om toegevoegd te worden: {reservatie}")
+
         db.session.add(reservatie)
         db.session.commit()
+
+        # Log succesvolle toevoeging
+        print(f"Reservering succesvol toegevoegd: {reservatie}")
+
         return jsonify({'message': 'Reservering succesvol aangemaakt!'}), 201
+
     except Exception as e:
         db.session.rollback()
+        # Log de fout
+        print(f"Fout bij het maken van de reservering: {str(e)}")
         return jsonify({'message': 'Fout bij het maken van de reservering', 'error': str(e)}), 500
     
 @app.route('/api/reservaties', methods=['GET'])
