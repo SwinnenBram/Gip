@@ -53,7 +53,7 @@
 }
 
 .parkeerplaats.gereserveerd {
-    background-color: blue; 
+    background-color: red;  /* Als je gereserveerde parkeerplaatsen rood wilt maken */
 }
 
 /* Toegevoegde tekst voor gereserveerde parkeerplaatsen */
@@ -69,6 +69,8 @@
 .parkeerplaats:hover {
     transform: scale(1.05);
 }
+
+
 
 /* Zwarte lijn tussen kolom 1 en 2, en tussen kolom 3 en 4 */
 .parking-grid::before, .parking-grid::after {

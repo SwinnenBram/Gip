@@ -12,6 +12,8 @@ import Verdiep1 from './parking/plattegrond-1';
 import Verdiep2 from './parking/plattegrond-2';
 import ParkeerplaatsenA from './parking/ParkingA'; // Nieuwe pagina voor Zone A
 import PlaceReservation from './components/PlaceReservation'; // Nieuwe reserveringspagina
+import Parkeerplaatsen from './parking/Parkeerplaatsen'; // De algemene pagina voor Parkeerplaatsen
+
 
 // 🔹 ProtectedRoute: Zorgt dat alleen ingelogde gebruikers de pagina's zien
 const ProtectedRoute = ({ children }) => {
@@ -98,13 +100,15 @@ const App = () => {
           
           {/* Nieuwe route voor Parkeerplaatsen - Zone A */}
           <Route 
-            path="/parkeerplaatsen-a" 
-            element={
-              <ProtectedRoute>
-                <ParkeerplaatsenA />
-              </ProtectedRoute>
-            }
-          />
+           path="/parkeerplaatsen" 
+           element={
+             <ProtectedRoute>
+               <Parkeerplaatsen />
+             </ProtectedRoute>
+           }
+         />
+         
+
 
           {/* Nieuwe route voor reservering met geselecteerde parkeerplaats */}
           <Route 

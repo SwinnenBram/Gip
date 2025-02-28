@@ -29,8 +29,6 @@ const VehicleManagement = () => {
       } catch (error) {
         console.error('Fout bij het ophalen van voertuigen:', error);
         setLoading(false);  // Zet de laadtoestand uit, zelfs als er een fout is
-        alert('Er is een probleem met het ophalen van de voertuigen. Probeer het later opnieuw.');
-        navigate('/login');
       }
     };
 

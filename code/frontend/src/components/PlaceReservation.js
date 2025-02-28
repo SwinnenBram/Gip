@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useLocation } from "react-router-dom"; // Haal de query parameters op
+import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
 
 const PlaceReservation = () => {
@@ -8,27 +8,27 @@ const PlaceReservation = () => {
     const [selectedParkeerplaats, setSelectedParkeerplaats] = useState("");
     const [starttijd, setStarttijd] = useState("");
     const [eindtijd, setEindtijd] = useState("");
+    const [parkeerplaatsInfo, setParkeerplaatsInfo] = useState(null);
 
-    // Haal de query parameters op
     const location = useLocation();
     const queryParams = new URLSearchParams(location.search);
-    const plaatsLocatie = queryParams.get("plaatsLocatie"); // Haal de locatie op
-    const datum = queryParams.get("datum"); // Haal de datum op uit de queryparameters
+    const plaatsLocatie = queryParams.get("plaatsLocatie");
+    const datum = queryParams.get("datum");
+
+    const navigate = useNavigate(); // Voeg de navigate hook toe
 
     useEffect(() => {
         fetchVoertuigen();
         if (plaatsLocatie) {
-            setSelectedParkeerplaats(plaatsLocatie); // Zet de locatie van de parkeerplaats in de state
+            setSelectedParkeerplaats(plaatsLocatie);
+            fetchParkeerplaatsInfo(plaatsLocatie);
         }
         if (datum) {
-            // Zet de starttijd op de opgegeven datum met een standaard tijd (bijv. 12:00)
             const defaultStarttijd = `${datum}T12:00`;
             setStarttijd(defaultStarttijd);
-
-            // Zet de eindtijd op 1 uur later dan de starttijd
             const startDate = new Date(defaultStarttijd);
-            startDate.setHours(startDate.getHours() + 1); // Voeg 1 uur toe aan de starttijd
-            setEindtijd(startDate.toISOString().slice(0, 16)); // Zet de eindtijd op 1 uur later
+            startDate.setHours(startDate.getHours() + 1);
+            setEindtijd(startDate.toISOString().slice(0, 16));
         }
     }, [plaatsLocatie, datum]);
 
@@ -43,55 +43,67 @@ const PlaceReservation = () => {
         }
     };
 
-    const handleReservering = async () => {
-        const userId = localStorage.getItem('user_id'); 
-        if (!userId) {
-          alert('Gebruiker is niet ingelogd');
-          return;
-        }
-      
-        const reservatieData = {
-          gebruiker_id: userId,
-          voertuig_id: selectedVoertuig,
-          parkeerplaats_id: selectedParkeerplaats,
-          starttijd,
-          eindtijd,
-        };
-      
-        console.log("Verzonden data:", reservatieData); // Log de data voor debugging
-      
+    const fetchParkeerplaatsInfo = async (plaatsId) => {
         try {
-          await axios.post(
-            "http://localhost:5000/api/reservaties",
-            reservatieData,
-            {
-              headers: { Authorization: `Bearer ${localStorage.getItem("token")}` },
+            const response = await axios.get("http://localhost:5000/api/parkings");
+            const parkeerplaatsen = response.data;
+            
+            // Zoek de juiste parkeerplaats op basis van plaatsId (locatie)
+            const parkeerplaats = parkeerplaatsen.find(p => p.locatie === plaatsId);
+            
+            if (parkeerplaats) {
+                setParkeerplaatsInfo(parkeerplaats);
+            } else {
+                console.error("Geen parkeerplaats gevonden met locatie:", plaatsId);
             }
-          );
-          alert("Reservering succesvol aangemaakt!");
         } catch (error) {
-          alert("Fout bij reservering.");
-          console.error("Fout bij reserveren:", error);
+            console.error("Fout bij ophalen parkeerplaats info:", error);
         }
-      };
-      
-    
-    
+    };
 
-    // Controleer of de geselecteerde eindtijd minimaal 1 uur na de starttijd ligt
+    const handleReservering = async () => {
+        const userId = localStorage.getItem('user_id');
+        if (!userId) {
+            alert('Gebruiker is niet ingelogd');
+            return;
+        }
+        
+        const reservatieData = {
+            gebruiker_id: userId,
+            voertuig_id: selectedVoertuig,
+            parkeerplaats_id: selectedParkeerplaats,
+            starttijd,
+            eindtijd,
+        };
+        
+        try {
+            await axios.post(
+                "http://localhost:5000/api/reservaties",
+                reservatieData,
+                { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
+            );
+            alert("Reservering succesvol aangemaakt!");
+        } catch (error) {
+            alert("Fout bij reservering.");
+            console.error("Fout bij reserveren:", error);
+        }
+    };
+
     const handleEindtijdChange = (e) => {
         const newEindtijd = e.target.value;
         const startDate = new Date(starttijd);
         const endDate = new Date(newEindtijd);
 
-        // Als de eindtijd minder dan 1 uur na de starttijd is, stel het opnieuw in
         if (endDate <= startDate) {
-            // Voeg 1 uur toe aan de starttijd en stel dat als de eindtijd in
             startDate.setHours(startDate.getHours() + 1);
-            setEindtijd(startDate.toISOString().slice(0, 16)); // Update eindtijd
+            setEindtijd(startDate.toISOString().slice(0, 16));
         } else {
-            setEindtijd(newEindtijd); // Update eindtijd als het een geldige tijd is
+            setEindtijd(newEindtijd);
         }
+    };
+
+    const handleBackClick = () => {
+        navigate(-1); // Dit zorgt ervoor dat de gebruiker terug gaat naar de vorige pagina
     };
 
     return (
@@ -110,10 +122,27 @@ const PlaceReservation = () => {
                 <label>Parkeerplaats</label>
                 <input 
                     type="text"
-                    value={selectedParkeerplaats} // Toon de locatie van de parkeerplaats
+                    value={selectedParkeerplaats}
                     readOnly
                     className="mb-4 w-full p-2 border rounded bg-gray-100"
                 />
+
+                {parkeerplaatsInfo && (
+                    <div className="mb-4 p-2 border rounded bg-gray-50">
+                        <p><strong>Grootte:</strong> {parkeerplaatsInfo.grootte}</p>
+                        {/* Controleer de soort van de parkeerplaats */}
+                        {parkeerplaatsInfo.soort === "handicap" && (
+                            <p><strong>Handicap:</strong> Ja</p>
+                        )}
+                        {parkeerplaatsInfo.soort === "elektrisch" && (
+                            <p><strong>Elektrisch Laden:</strong> Ja</p>
+                        )}
+                        {/* Als er een andere soort is, kun je het hier toevoegen */}
+                        {parkeerplaatsInfo.soort !== "handicap" && parkeerplaatsInfo.soort !== "elektrisch" && (
+                            <p><strong>Soort:</strong> {parkeerplaatsInfo.soort}</p>
+                        )}
+                    </div>
+                )}
 
                 <label>Starttijd</label>
                 <input 
@@ -127,7 +156,7 @@ const PlaceReservation = () => {
                 <input 
                     type="datetime-local" 
                     value={eindtijd} 
-                    onChange={handleEindtijdChange}  // Gebruik de aangepaste eindtijdlogica
+                    onChange={handleEindtijdChange}  
                     className="mb-4 w-full p-2 border rounded"
                 />
 
@@ -136,6 +165,14 @@ const PlaceReservation = () => {
                     onClick={handleReservering}
                 >
                     Reserveren
+                </button>
+
+                {/* Terug-knop */}
+                <button 
+                    onClick={handleBackClick}
+                    className="mt-4 w-full p-2 bg-gray-500 text-white rounded"
+                >
+                    Terug
                 </button>
             </div>
         </div>

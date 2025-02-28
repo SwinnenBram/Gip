@@ -5,56 +5,67 @@ import "./Parkeerplaatsen.css";
 
 const ParkeerplaatsenA = () => {
     const [parkeerplaatsen, setParkeerplaatsen] = useState([]);
-    const [loading, setLoading] = useState(true); // Laadstatus
-    const [error, setError] = useState(null); // Foutmelding opslaan
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Haal de datum op uit de queryparameter
     const urlParams = new URLSearchParams(location.search);
-    const datum = urlParams.get("datum"); 
+    const datum = urlParams.get("datum");
 
     useEffect(() => {
         if (datum) {
             setLoading(true);
-            setError(null); // Reset fouten bij nieuwe aanvraag
+            setError(null);
     
-            // Haal het token uit localStorage (of waar het ook opgeslagen is)
             const token = localStorage.getItem("token");
     
             // 🚗 **Stap 1: Haal parkeerplaatsen op**
             axios.get(`http://localhost:5000/api/parkings?datum=${datum}&zone=A`, {
                 headers: {
-                    Authorization: `Bearer ${token}` // Voeg token toe aan de header
+                    Authorization: `Bearer ${token}`
                 }
             })
                 .then((response) => {
-                    setParkeerplaatsen(response.data);
+                    const parkeerplaatsenData = response.data.map(plek => ({
+                        id: plek.id,
+                        locatie: plek.locatie,
+                        status: 'beschikbaar' // Standaard groen
+                    }));
     
-                    // Log de volledige reserveringen
-                    const gereserveerdePlekken = response.data.filter(plek => plek.gereserveerd);
-                    console.log(`Gereserveerde parkeerplaatsen op ${datum}:`, gereserveerdePlekken);
+                    // 🚗 **Stap 2: Haal reserveringen op voor de geselecteerde datum**
+                    axios.get(`http://localhost:5000/api/reservaties/op_datum?datum=${datum}`, {
+                        headers: {
+                            Authorization: `Bearer ${token}`
+                        }
+                    })
+                        .then((res) => {
+                            const gereserveerdePlekken = res.data.map(reservatie => reservatie.parkeerplaats_id);
+                            console.log(`Gereserveerde parkeerplaatsen op ${datum}:`, gereserveerdePlekken);
     
-                    // Als je de volledige details van de reserveringen wilt zien:
-                    gereserveerdePlekken.forEach(plek => {
-                        console.log(`Reservering details voor ${plek.locatie}:`);
-                        console.log(`Reservering ID: ${plek.reservatie_id}`);
-                        console.log(`Starttijd: ${plek.starttijd}`);
-                        console.log(`Eindtijd: ${plek.eindtijd}`);
-                        console.log(`Klant: ${plek.klant}`);
-                    });
+                            // 🚗 **Stap 3: Update status van gereserveerde plekken**
+                            const updatedParkeerplaatsen = parkeerplaatsenData.map(plek => ({
+                                ...plek,
+                                status: gereserveerdePlekken.includes(plek.id) ? 'gereserveerd' : 'beschikbaar'
+                            }));
+    
+                            setParkeerplaatsen(updatedParkeerplaatsen);
+                        })
+                        .catch((err) => {
+                            console.error("❌ Fout bij het ophalen van reserveringen:", err);
+                            setError("Kan reserveringsgegevens niet laden.");
+                        })
+                        .finally(() => {
+                            setLoading(false);
+                        });
                 })
-                .catch((error) => {
-                    console.error("❌ Fout bij het ophalen van parkeerplaatsen:", error);
+                .catch((err) => {
+                    console.error("❌ Fout bij het ophalen van parkeerplaatsen:", err);
                     setError("Kan parkeerplaatsen niet laden.");
-                })
-                .finally(() => {
                     setLoading(false);
                 });
         }
     }, [datum]);
-    
-    
 
     const handleClick = (locatie) => {
         navigate(`/place-reservation?plaatsLocatie=${locatie}&datum=${datum}`);
@@ -64,25 +75,20 @@ const ParkeerplaatsenA = () => {
         <div className="container">
             <h1 className="title">Parkeerplaatsen - Zone A</h1>
             <p>Geselecteerde datum: {datum}</p>
-
-            {/* Foutmelding tonen als er iets misgaat */}
             {error && <p className="error">{error}</p>}
-
             <div className="parking-grid">
                 {loading ? (
                     <p>Parkeerplaatsen laden...</p>
-                ) : parkeerplaatsen.length > 0 ? (
+                ) : (
                     parkeerplaatsen.map((plek) => (
                         <div
                             key={plek.id}
-                            className={`parkeerplaats ${plek.status}`} 
+                            className={`parkeerplaats ${plek.status}`}
                             onClick={() => handleClick(plek.locatie)}
                         >
                             {plek.locatie}
                         </div>
                     ))
-                ) : (
-                    <p>Geen parkeerplaatsen gevonden voor de geselecteerde datum.</p>
                 )}
             </div>
         </div>

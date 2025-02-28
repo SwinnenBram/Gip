@@ -176,7 +176,7 @@ def dashboard():
     
     if gebruiker:
         return jsonify({
-            'message': f"Hey {gebruiker.naam}, met e-mail {gebruiker.email}, welkom dat je er bent!"
+            'message': f"Welkom terug {gebruiker.naam}, Fijn dat je er bent!"
         }), 200
     
     return jsonify({'message': 'Gebruiker niet gevonden'}), 404
@@ -272,8 +272,6 @@ def delete_voertuig(nummerplaat):
     except Exception as e:
         db.session.rollback()
         return jsonify({'message': 'Fout bij het verwijderen van het voertuig', 'error': str(e)}), 500
-
-  
 @app.route('/api/parkings', methods=['GET'])
 def get_parking_spaces():
     parkeerplaatsen = Parkeerplaats.query.all()
@@ -289,6 +287,20 @@ def get_parking_spaces():
         ]
         return jsonify(parking_list), 200
     return jsonify({'message': 'Geen parkeerplaatsen gevonden'}), 404
+
+@app.route('/api/parkings/<int:parking_id>', methods=['GET'])
+def get_parking_space_by_id(parking_id):
+    parkeerplaats = Parkeerplaats.query.get(parking_id)
+    if parkeerplaats:
+        return jsonify({
+            'id': parkeerplaats.id,
+            'status': parkeerplaats.status,
+            'grootte': parkeerplaats.grootte,
+            'locatie': parkeerplaats.locatie,
+            'soort': parkeerplaats.soort  # Voeg de 'soort' hier toe
+        }), 200
+    return jsonify({'message': 'Parkeerplaats niet gevonden'}), 404
+
 
 @app.route('/api/parkings/status', methods=['GET'])
 def get_parking_status_for_day():
@@ -376,43 +388,53 @@ def get_parkings():
 
     return jsonify(parkeerplaatsen), 200
 
-
-
-@app.route('/api/reservaties-datum', methods=['GET'])
+@app.route('/api/reservaties/op_datum', methods=['GET'])
 @jwt_required()
-def get_reservaties_datum():
-    current_user_id = get_jwt_identity()  # Haal de gebruikers-ID uit het JWT-token
-
-    # Verkrijg de datum uit de query parameters (optioneel, standaard is None)
-    datum_param = request.args.get('datum', None)
-
-    # Zet de datum om naar een datetime object als deze meegegeven is
-    if datum_param:
-        try:
-            datum = datetime.strptime(datum_param, '%Y-%m-%d')
-        except ValueError:
-            return jsonify({'message': 'Ongeldig datumformaat. Gebruik YYYY-MM-DD.'}), 400
-    else:
-        datum = None  # Geen datum meegegeven, dus geen filteren op datum
-
-    # Begin de query om actieve reserveringen van de gebruiker op te halen
-    query = Reservatie.query.filter_by(gebruiker_id=current_user_id, status='actief')
-
-    if datum:
-        # Voeg datumfilter toe aan de query
-        query = query.filter(Reservatie.starttijd.date() == datum.date())
-
-    reservaties = query.all()
-
+def get_reservaties_op_datum():
+    datum = request.args.get('datum')  # Verwacht een datum in 'YYYY-MM-DD' formaat
+    if not datum:
+        return jsonify({'message': 'Geen datum opgegeven'}), 400
+    
+    # Filter op basis van de opgegeven datum
+    reservaties = db.session.query(Reservatie, Parkeerplaats).join(Parkeerplaats, Reservatie.parkeerplaats_id == Parkeerplaats.id).filter(
+        Reservatie.starttijd.startswith(datum), Reservatie.status == 'actief'
+    ).all()
+    
     if reservaties:
         reservaties_list = [
-            {'reservatienummer': r.reservatienummer, 'starttijd': r.starttijd, 'eindtijd': r.eindtijd}
+            {
+                'reservatienummer': r[0].reservatienummer,
+                'gebruiker_id': r[0].gebruiker_id,
+                'starttijd': r[0].starttijd,
+                'eindtijd': r[0].eindtijd,
+                'parkeerplaats_id': r[1].id,  # Parkeerplaats ID
+                'parkeerplaats_locatie': r[1].locatie  # Parkeerplaats locatie, als je dat wilt
+            }
             for r in reservaties
         ]
         return jsonify(reservaties_list), 200
     
-    return jsonify({'message': 'Geen actieve reserveringen gevonden'}), 404
+    return jsonify({'message': 'Geen actieve reserveringen gevonden voor deze datum'}), 404
 
+@app.route('/api/reservaties/<string:reservatienummer>', methods=['DELETE'])
+@jwt_required()
+def delete_reservatie(reservatienummer):
+    gebruiker_id = get_jwt_identity()
+
+    # Zoek de reservering op basis van reservatienummer en gebruiker_id
+    reservatie = Reservatie.query.filter_by(reservatienummer=reservatienummer, gebruiker_id=gebruiker_id).first()
+
+    if not reservatie:
+        return jsonify({'message': 'Reservering niet gevonden'}), 404
+
+    try:
+        # Verwijder de reservering
+        db.session.delete(reservatie)
+        db.session.commit()
+        return jsonify({'message': 'Reservering succesvol verwijderd!'}), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'message': 'Fout bij het verwijderen van de reservering', 'error': str(e)}), 500
 
 
 @app.route('/api/reservaties', methods=['POST'])
@@ -501,14 +523,23 @@ def create_reservatie():
 @jwt_required()
 def get_reservaties():
     current_user_id = get_jwt_identity()  # Haal de gebruikers-ID uit het JWT-token
-    reservaties = Reservatie.query.filter_by(gebruiker_id=current_user_id, status='actief').all()
+    reservaties = db.session.query(Reservatie, Parkeerplaats).join(Parkeerplaats, Reservatie.parkeerplaats_id == Parkeerplaats.id).filter(
+        Reservatie.gebruiker_id == current_user_id, Reservatie.status == 'actief').all()
+
     if reservaties:
         reservaties_list = [
-            {'reservatienummer': r.reservatienummer, 'starttijd': r.starttijd, 'eindtijd': r.eindtijd}
+            {
+                'reservatienummer': r[0].reservatienummer,
+                'starttijd': r[0].starttijd,
+                'eindtijd': r[0].eindtijd,
+                'parkeerplaats_id': r[1].id,  # Parkeerplaats ID
+                'parkeerplaats_locatie': r[1].locatie  # Parkeerplaats locatie
+            }
             for r in reservaties
         ]
         return jsonify(reservaties_list), 200
     return jsonify({'message': 'Geen actieve reserveringen gevonden'}), 404
+
 
 @app.route('/api/betaling', methods=['POST'])
 def add_betaling():

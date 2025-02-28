@@ -2,9 +2,17 @@
 .parking-container {
     display: flex;
     justify-content: center; /* Horizontaal centreren */
-    align-items: center;     /* Verticaal centreren */
-    height: 100vh;           /* Zorg dat de container de volledige hoogte van het scherm vult */
-    flex-direction: column;  /* Maak de container een kolom zodat we de knop onder de grid plaatsen */
+    align-items: flex-start;  /* Verander van center naar flex-start om alles naar boven te duwen */
+    padding-top: 20px;         /* Voeg wat ruimte toe bovenaan */
+    flex-direction: column;    /* Maak de container een kolom zodat we de knop onder de grid plaatsen */
+    height: auto;              /* Haal de 100vh weg, zodat het flex-start effect goed werkt */
+}
+
+/* Container voor de datum en verdieping informatie */
+.info-container {
+    margin-bottom: 20px; /* Ruimte tussen info en parkeerplaatsen */
+    text-align: center;  /* Zorg ervoor dat de tekst gecentreerd wordt */
+    font-size: 18px;     /* Maak de tekst iets groter */
 }
 
 /* De grid zelf */
@@ -46,6 +54,9 @@
     font-size: 16px;
     cursor: pointer;
     transition: background-color 0.3s;
+    width: 200px;  /* Geef de knop een vaste breedte */
+    margin-left: auto;  /* Zorg dat de knop gecentreerd wordt */
+    margin-right: auto; /* Zorg dat de knop gecentreerd wordt */
 }
 
 .back-button:hover {
