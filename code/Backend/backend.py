@@ -252,6 +252,42 @@ def update_voertuig(nummerplaat):
         db.session.rollback()
         return jsonify({'message': 'Fout bij het bijwerken van het voertuig', 'error': str(e)}), 500
 
+@app.route('/check_numberplate', methods=['POST'])
+def check_numberplate():
+    nummerplaat = request.json.get('nummerplaat')
+
+    # Zoek het voertuig op basis van de nummerplaat
+    voertuig = Voertuig.query.filter_by(nummerplaat=nummerplaat).first()
+
+    if voertuig:
+        # Zoek de bijbehorende reservering via voertuig_id
+        reservering = Reservatie.query.filter_by(voertuig_id=voertuig.id).first()
+
+        if reservering:
+            # Zoek de parkeerplaats op basis van het parkplaats_id in de reservering
+            parkeerplaats = Parkeerplaats.query.filter_by(id=reservering.parkeerplaats_id).first()
+
+            # Als parkeerplaats wordt gevonden, voeg locatie toe aan de response
+            if parkeerplaats:
+                response = {
+                    'status': 'found',
+                    'nummerplaat': nummerplaat,
+                    'reservatienummer': reservering.reservatienummer,
+                    'starttijd': reservering.starttijd.isoformat(),
+                    'eindtijd': reservering.eindtijd.isoformat(),
+                    'status': reservering.status,
+                    'locatie': parkeerplaats.locatie  # Voeg locatie van de parkeerplaats toe
+                }
+                return jsonify(response)
+            else:
+                return jsonify({'status': 'not_found', 'message': 'Parkeerplaats niet gevonden voor deze reservering'})
+        else:
+            # Geen reservering gevonden voor dit voertuig
+            return jsonify({'status': 'not_found', 'message': 'Geen reservering gevonden voor deze nummerplaat'})
+    else:
+        # Geen voertuig gevonden met de opgegeven nummerplaat
+        return jsonify({'status': 'not_found', 'message': 'Voertuig niet gevonden met deze nummerplaat'})
+
 
 # Route om een voertuig te verwijderen op basis van nummerplaat
 @app.route('/api/voertuigen/<string:nummerplaat>', methods=['DELETE'])

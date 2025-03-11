@@ -42,6 +42,9 @@ const Header = () => {
               <li className="navbar-item">
                 <Link to="/reservation" className="navbar-link">Reservering</Link> {/* Link naar Reservation toegevoegd */}
               </li>
+              <li className="navbar-item">
+                <Link to="/nummerplaat" className="navbar-link">nummerplaat</Link> {/* Link naar nummerplaat toegevoegd */}
+              </li>
               {/* Uitlogknop (pictogram of tekst) */}
               <li className="navbar-item">
                 <button onClick={handleLogout} className="navbar-link logout-btn">Uitloggen</button>

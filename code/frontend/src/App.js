@@ -13,6 +13,7 @@ import Verdiep2 from './parking/plattegrond-2';
 import ParkeerplaatsenA from './parking/ParkingA'; // Nieuwe pagina voor Zone A
 import PlaceReservation from './components/PlaceReservation'; // Nieuwe reserveringspagina
 import Parkeerplaatsen from './parking/Parkeerplaatsen'; // De algemene pagina voor Parkeerplaatsen
+import Nummerplaat from './components/nummerplaat';
 
 
 // 🔹 ProtectedRoute: Zorgt dat alleen ingelogde gebruikers de pagina's zien
@@ -78,6 +79,14 @@ const App = () => {
             element={
               <ProtectedRoute>
                 <Reservation />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="/nummerplaat"  
+            element={
+              <ProtectedRoute>
+                <Nummerplaat />
               </ProtectedRoute>
             } 
           />
