@@ -1,10 +1,12 @@
 import React, { useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
+import { useNavigate } from "react-router-dom";  // Importeer useNavigate
 
 const CheckReservering = () => {
   const [nummerplaat, setNummerplaat] = useState(""); // Nummerplaat invoer
   const [loading, setLoading] = useState(false); // Laadstatus
+  const navigate = useNavigate();  // Gebruik de navigate functie
 
   // Functie om nummerplaat op te slaan
   const handleNummerplaatChange = (e) => {
@@ -28,44 +30,41 @@ const CheckReservering = () => {
 
       console.log("🔎 API Response Data:", response.data);
 
-      let reserveringen = response.data;
-      if (!Array.isArray(reserveringen)) {
-        reserveringen = [reserveringen]; // Zorg dat het een array is
+      // Controleer of er geen reservering is gevonden
+      if (!response.data || response.data.status === 'not_found') {
+        // Als er geen reservering is, laat dan de "Geen reservering gevonden" popup zien
+        Swal.fire({
+          title: "❌ Geen Reservering Gevonden",
+          text: "Er is geen reservering gevonden voor deze nummerplaat.",
+          icon: "warning",
+          showCancelButton: true,
+          cancelButtonText: "Sluiten",
+          confirmButtonText: "Wilt u reserveren?",
+        }).then((result) => {
+          if (result.isConfirmed) {
+            // Navigeren naar de pagina reserveerd_direct.js met de nummerplaat in de state
+            navigate('/reserveerd_direct', { state: { nummerplaat } });
+            Swal.fire("Reserveren", "Je wordt doorgestuurd naar het reserveringsformulier.", "info");
+          }
+        });
+        return; // Stop verder verwerken als geen reservering is gevonden
       }
 
-      // ✅ Stap 1: Bereken de huidige datum (zonder tijd)
-      const vandaag = new Date();
-      vandaag.setHours(0, 0, 0, 0);
+      // Als er een reservering is, toon de details in een popup
+      let eindtijd = new Date(response.data.eindtijd);
+      let starttijd = new Date(response.data.starttijd);
 
-      // ✅ Stap 2: Filter reserveringen die in de toekomst liggen (vandaag of later)
-      let toekomstigeReserveringen = reserveringen.filter((res) => {
-        let eindtijd = new Date(res.eindtijd);
-        return eindtijd >= vandaag; // Alleen toekomstige of huidige reserveringen
+      // Toon een popup met de eindtijd en locatie
+      Swal.fire({
+        title: "✅ Reservering Gevonden",
+        html: ` 
+          <p><strong>📍 Locatie:</strong> ${response.data.locatie}</p>
+          <p><strong>⏳ Eindtijd:</strong> ${eindtijd.toLocaleTimeString()}</p>
+        `,
+        icon: "success",
+        confirmButtonText: "OK",
       });
 
-      // ✅ Stap 3: Zoek de eerstvolgende reservering
-      let eerstvolgendeReservering = toekomstigeReserveringen.sort((a, b) => 
-        new Date(a.eindtijd) - new Date(b.eindtijd)
-      )[0];
-
-      console.log("✅ Eerstvolgende reservering:", eerstvolgendeReservering);
-
-      // ✅ Stap 4: Toon de popup ALS er een geldige reservering is
-      if (eerstvolgendeReservering) {
-        let eindtijd = new Date(eerstvolgendeReservering.eindtijd).toLocaleTimeString();
-        Swal.fire({
-          title: "✅ Reservering Gevonden",
-          html: `
-            <p><strong>📍 Locatie:</strong> ${eerstvolgendeReservering.locatie}</p>
-            <p><strong>⏳ Eindtijd:</strong> ${eindtijd}</p>
-          `,
-          icon: "success",
-          confirmButtonText: "OK",
-        });
-      } else {
-        console.log("❌ Geen toekomstige reservering gevonden!");
-        Swal.fire("Geen reservering", "Er is geen toekomstige reservering gevonden voor deze nummerplaat.", "warning");
-      }
     } catch (error) {
       console.error("⚠️ Fout bij ophalen reservering:", error);
       Swal.fire("Fout", "Er is een fout opgetreden bij het ophalen van de reservering.", "error");

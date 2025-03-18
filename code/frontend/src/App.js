@@ -14,6 +14,8 @@ import ParkeerplaatsenA from './parking/ParkingA'; // Nieuwe pagina voor Zone A
 import PlaceReservation from './components/PlaceReservation'; // Nieuwe reserveringspagina
 import Parkeerplaatsen from './parking/Parkeerplaatsen'; // De algemene pagina voor Parkeerplaatsen
 import Nummerplaat from './components/nummerplaat';
+import ReserveerdDirect from "./components/reserveer_direct";
+import AdminDashboard from './components/admindashboard';
 
 
 // 🔹 ProtectedRoute: Zorgt dat alleen ingelogde gebruikers de pagina's zien
@@ -55,6 +57,7 @@ const App = () => {
           {/* Publieke routes */}
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/nummerplaat" element={<Nummerplaat/>}/>
           <Route path="/" element={<h1>Welcome to the Smart Parking Garage!</h1>} />
 
           {/* Beveiligde routes */}
@@ -74,6 +77,16 @@ const App = () => {
               </ProtectedRoute>
             } 
           />
+
+          <Route 
+            path="/Reserveerd_direct"  
+            element={
+              <ProtectedRoute>
+                <ReserveerdDirect />
+              </ProtectedRoute>
+            } 
+          />
+
           <Route 
             path="/reservation"  
             element={
@@ -90,6 +103,16 @@ const App = () => {
               </ProtectedRoute>
             } 
           />
+
+          <Route 
+            path="/AdminDashboard"  
+            element={
+              <ProtectedRoute>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } 
+          />
+
           <Route 
             path="/verdiep-1"  
             element={

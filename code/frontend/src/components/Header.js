@@ -27,6 +27,9 @@ const Header = () => {
               <li className="navbar-item">
                 <Link to="/login" className="navbar-link">Login</Link>
               </li>
+              <li className="navbar-item">
+                <Link to="/nummerplaat" className="navbar-link">Nummerplaat</Link>
+              </li>
             </>
           )}
 
@@ -43,7 +46,10 @@ const Header = () => {
                 <Link to="/reservation" className="navbar-link">Reservering</Link> {/* Link naar Reservation toegevoegd */}
               </li>
               <li className="navbar-item">
-                <Link to="/nummerplaat" className="navbar-link">nummerplaat</Link> {/* Link naar nummerplaat toegevoegd */}
+                <Link to="/nummerplaat" className="navbar-link">Nummerplaat</Link> {/* Link naar Reservation toegevoegd */}
+              </li>
+              <li className="navbar-item">
+                <Link to="/AdminDashboard" className="navbar-link">Admin</Link> {/* Link naar nummerplaat toegevoegd */}
               </li>
               {/* Uitlogknop (pictogram of tekst) */}
               <li className="navbar-item">

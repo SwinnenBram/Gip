@@ -16,7 +16,7 @@ const Parkeerplaatsen = () => {
     const urlParams = new URLSearchParams(location.search);
     const datum = urlParams.get("datum");
     const zone = urlParams.get("zone");
-
+    const verdieping = urlParams.get("verdieping"); // -1 of -2
     useEffect(() => {
         if (datum && zone) {
             setLoading(true);
@@ -26,47 +26,48 @@ const Parkeerplaatsen = () => {
 
             // Bepaal de juiste locatie range op basis van de zone
             let locatieRange = [];
-            if (zone === "A") {
-                locatieRange = Array.from({ length: 40 }, (_, i) => `A${i + 1}`);
-            } else if (zone === "B") {
-                locatieRange = Array.from({ length: 40 }, (_, i) => `B${i + 1}`);
-            } else if (zone === "C") {
-                locatieRange = Array.from({ length: 40 }, (_, i) => `C${i + 1}`);
-            } else if (zone === "D") {
-                locatieRange = Array.from({ length: 40 }, (_, i) => `D${i + 1}`);
-            } else if (zone === "E") {
-                locatieRange = Array.from({ length: 40 }, (_, i) => `E${i + 1}`);
-            } else if (zone === "F") {
-                locatieRange = Array.from({ length: 40 }, (_, i) => `F${i + 1}`);
-            } else if (zone === "G") {
-                locatieRange = Array.from({ length: 40 }, (_, i) => `G${i + 1}`);
-            } else if (zone === "H") {
-                locatieRange = Array.from({ length: 40 }, (_, i) => `H${i + 1}`);
-            } else if (zone === "I") {
-                locatieRange = Array.from({ length: 40 }, (_, i) => `I${i + 1}`);
-            } else if (zone === "J") {
-                locatieRange = Array.from({ length: 40 }, (_, i) => `J${i + 1}`);
-            } else if (zone === "K") {
-                locatieRange = Array.from({ length: 40 }, (_, i) => `K${i + 1}`);
-            } else if (zone === "L") {
-                locatieRange = Array.from({ length: 40 }, (_, i) => `L${i + 1}`);
-            } else if (zone === "M") {
-                locatieRange = Array.from({ length: 40 }, (_, i) => `M${i + 1}`);
-            } else if (zone === "N") {
-                locatieRange = Array.from({ length: 40 }, (_, i) => `N${i + 1}`);
-            } else if (zone === "O") {
-                locatieRange = Array.from({ length: 40 }, (_, i) => `O${i + 1}`);
-            } else if (zone === "P") {
-                locatieRange = Array.from({ length: 40 }, (_, i) => `P${i + 1}`);
-            } else if (zone === "Q") {
-                locatieRange = Array.from({ length: 40 }, (_, i) => `Q${i + 1}`);
-            } else if (zone === "R") {
-                locatieRange = Array.from({ length: 40 }, (_, i) => `R${i + 1}`);
-            }
+                if (zone === "A") {
+                    locatieRange = Array.from({ length: 40 }, (_, i) => `A${i + 1}`);
+                } else if (zone === "B") {
+                    locatieRange = Array.from({ length: 40 }, (_, i) => `B${i + 1}`);
+                } else if (zone === "C") {
+                    locatieRange = Array.from({ length: 40 }, (_, i) => `C${i + 1}`);
+                } else if (zone === "D") {
+                    locatieRange = Array.from({ length: 40 }, (_, i) => `D${i + 1}`);
+                } else if (zone === "E") {
+                    locatieRange = Array.from({ length: 40 }, (_, i) => `E${i + 1}`);
+                } else if (zone === "F") {
+                    locatieRange = Array.from({ length: 40 }, (_, i) => `F${i + 1}`);
+                } else if (zone === "G") {
+                    locatieRange = Array.from({ length: 40 }, (_, i) => `G${i + 1}`);
+                } else if (zone === "H") {
+                    locatieRange = Array.from({ length: 40 }, (_, i) => `H${i + 1}`);
+                } else if (zone === "I") {
+                    locatieRange = Array.from({ length: 40 }, (_, i) => `I${i + 1}`);
+                } else if (zone === "J") {
+                    locatieRange = Array.from({ length: 40 }, (_, i) => `J${i + 1}`);
+                } else if (zone === "K") {
+                    locatieRange = Array.from({ length: 40 }, (_, i) => `K${i + 1}`);
+                } else if (zone === "L") {
+                    locatieRange = Array.from({ length: 40 }, (_, i) => `L${i + 1}`);
+                } else if (zone === "M") {
+                    locatieRange = Array.from({ length: 40 }, (_, i) => `M${i + 1}`);
+                } else if (zone === "N") {
+                    locatieRange = Array.from({ length: 40 }, (_, i) => `N${i + 1}`);
+                } else if (zone === "O") {
+                    locatieRange = Array.from({ length: 40 }, (_, i) => `O${i + 1}`);
+                } else if (zone === "P") {
+                    locatieRange = Array.from({ length: 40 }, (_, i) => `P${i + 1}`);
+                } else if (zone === "Q") {
+                    locatieRange = Array.from({ length: 40 }, (_, i) => `Q${i + 1}`);
+                } else if (zone === "R") {
+                    locatieRange = Array.from({ length: 40 }, (_, i) => `R${i + 1}`);
+                }
+
 
             // Haal parkeerplaatsen op voor de geselecteerde zone en datum
             axios
-                .get(`http://localhost:5000/api/parkings?datum=${datum}&zone=${zone}`, {
+                .get(`http://localhost:5000/api/parkings?datum=${datum}&zone=${zone}&verdieping=${verdieping}`, {
                     headers: {
                         Authorization: `Bearer ${token}`,
                     },
@@ -85,7 +86,7 @@ const Parkeerplaatsen = () => {
 
                     // Haal reserveringen op voor de geselecteerde datum
                     axios
-                        .get(`http://localhost:5000/api/reservaties/op_datum?datum=${datum}`, {
+                        .get(`http://localhost:5000/api/reservaties/op_datum?datum=${datum}&verdieping=${verdieping}`, {
                             headers: {
                                 Authorization: `Bearer ${token}`,
                             },
@@ -126,7 +127,7 @@ const Parkeerplaatsen = () => {
         if (status === "gereserveerd") {
             setInfoMessage("Parkeerplaats is al gereserveerd");
         } else {
-            navigate(`/place-reservation?plaatsLocatie=${locatie}&datum=${datum}`);
+            navigate(`/place-reservation?plaatsLocatie=${locatie}&datum=${datum}&verdieping=${verdieping}`);
         }
     };
 
@@ -137,7 +138,7 @@ const Parkeerplaatsen = () => {
 
     return (
         <div className="container">
-            <h1 className="title">Parkeerplaatsen - Zone {zone}</h1>
+            <h1 className="title">Parkeerplaatsen - Zone {zone} (Verdieping {verdieping})</h1>
             <p>Geselecteerde datum: {datum}</p>
             {error && <p className="error">{error}</p>}
             {infoMessage && <p className="info-message">{infoMessage}</p>} {/* Info bericht tonen */}

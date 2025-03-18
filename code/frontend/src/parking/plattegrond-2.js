@@ -27,6 +27,7 @@ const Plattegrond2 = () => {
                 {datum && <p><strong>Geselecteerde datum:</strong> {datum}</p>}
                 <p><strong>Verdieping:</strong> -2</p>
             </div>
+            
             <div className="parking">
                 {/* Render alle zones met een dynamische map */}
                 {zones.map((zone) => (
