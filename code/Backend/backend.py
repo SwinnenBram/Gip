@@ -13,6 +13,13 @@ import pytz
 from werkzeug.exceptions import BadRequest
 from sqlalchemy.sql import func
 from datetime import date
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
+#!!!
+#school wifi laat geen mails versturen enkel op 4g of mogelijks andere wifi wel 
+#!!!
 
 kosten_per_uur = 5.00  # Kosten per uur (standaardwaarde)
 
@@ -277,6 +284,14 @@ def check_numberplate():
             parkeerplaats = Parkeerplaats.query.filter_by(id=reservering.parkeerplaats_id).first()
             
             if parkeerplaats:
+                # Verkrijg de gebruiker en zijn e-mailadres via de reservering
+                gebruiker = Gebruiker.query.filter_by(id=reservering.gebruiker_id).first()
+                if gebruiker:
+                    email = gebruiker.email  # Haal het e-mailadres op van de gebruiker
+                else:
+                    email = None  # Indien geen gebruiker gevonden, zet e-mail naar None
+
+                # Bouw de response met de gegevens
                 response = {
                     'status': 'found',
                     'nummerplaat': nummerplaat,
@@ -286,6 +301,10 @@ def check_numberplate():
                     'status': reservering.status,
                     'locatie': parkeerplaats.locatie  # Voeg locatie van de parkeerplaats toe
                 }
+
+                # Verzend de e-mail met de benodigde gegevens
+                send_confirmation_email(reservering, nummerplaat, parkeerplaats.locatie, email)  # E-mail functie apart aanroepen
+                
                 return jsonify(response)
             else:
                 return jsonify({'status': 'not_found', 'message': 'Parkeerplaats niet gevonden voor deze reservering'})
@@ -293,6 +312,64 @@ def check_numberplate():
             return jsonify({'status': 'not_found', 'message': 'Geen reservering gevonden voor vandaag'})
     else:
         return jsonify({'status': 'not_found', 'message': 'Voertuig niet gevonden met deze nummerplaat'})
+
+
+# Functie om de e-mail te versturen
+
+def send_confirmation_email(reservering, nummerplaat, locatie, email):
+    print('In de send_confirmation_email functie')
+
+    # E-mailgegevens
+    sender_email = "bramswinnen1@gmail.com"
+    receiver_email = email  # Het e-mailadres van de klant
+    subject = f"Toegang verleend bij Smart Parking - Reservering {reservering.reservatienummer}"
+
+    # HTML e-mailinhoud
+    html = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+            <h2 style="color: #2c3e50;">Toegang verleend bij Smart Parking</h2>
+            <p>Beste klant,</p>
+            <p>Je bent zojuist <strong>binnengereden bij Smart Parking</strong>. Jouw nummerplaat <strong>{nummerplaat}</strong> is herkend en gekoppeld aan een bestaande reservering.</p>
+            <h3>Reserveringsgegevens:</h3>
+            <ul>
+                <li><strong>Reserveringsnummer:</strong> {reservering.reservatienummer}</li>
+                <li><strong>Datum:</strong> {date.today()}</li>
+                <li><strong>Starttijd:</strong> {reservering.starttijd}</li>
+                <li><strong>Eindtijd:</strong> {reservering.eindtijd}</li>
+                <li><strong>Parkeerplaatslocatie:</strong> {locatie}</li>
+            </ul>
+            <p>Bedankt voor je bezoek aan <strong>Smart Parking</strong>. Wij wensen je een prettige dag!</p>
+            <br>
+            <p style="font-size: 12px; color: #7f8c8d;">Met vriendelijke groet,<br>
+            <strong>Het Smart Parking Team</strong></p>
+        </div>
+    </body>
+    </html>
+    """
+
+    # Maak de e-mail
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = receiver_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(html, 'html'))  # Alleen HTML-versie bijvoegen
+
+    # Verstuur de e-mail via Gmail SMTP-server
+    try:
+        print('Verbinding maken met de SMTP-server...')
+        with smtplib.SMTP('smtp.gmail.com', 587) as server:
+            server.set_debuglevel(1)  # Zet de debugmodus aan om te loggen
+            server.starttls()  # Start TLS-beveiliging
+            server.login(sender_email, 'mgoxlowhwjpudbdl')  # Gebruik je app-specifieke wachtwoord
+            server.sendmail(sender_email, receiver_email, msg.as_string())
+            print(f'E-mail succesvol verzonden naar {receiver_email}')
+    
+    except smtplib.SMTPException as e:
+        print(f"SMTP fout: {e}")
+    except Exception as e:
+        print(f"Onverwachte fout: {e}")
 
 
 
@@ -573,6 +650,15 @@ def create_reservatie():
         db.session.add(reservatie)
         db.session.commit()
 
+        gebruiker = Gebruiker.query.get(gebruiker_id)
+        if gebruiker and gebruiker.email:
+            send_reservation_email(
+                reservering=reservatie,
+                nummerplaat=voertuig_nummerplaat,
+                locatie=parkeerplaats.locatie,
+                email=gebruiker.email
+            )
+
         # Log succesvolle toevoeging
         print(f"Reservering succesvol toegevoegd: {reservatie}")
 
@@ -583,6 +669,63 @@ def create_reservatie():
         # Log de fout
         print(f"Fout bij het maken van de reservering: {str(e)}")
         return jsonify({'message': 'Fout bij het maken van de reservering', 'error': str(e)}), 500
+    
+def send_reservation_email(reservering, nummerplaat, locatie, email):
+    print('In de send_reservation_email functie')
+
+    # E-mailgegevens
+    sender_email = "bramswinnen1@gmail.com"
+    receiver_email = email  # Het e-mailadres van de klant
+    subject = f"Bevestiging van je reservering - Smart Parking"
+
+    # HTML e-mailinhoud
+    html = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+            <h2 style="color: #2c3e50;">Bevestiging van je reservering</h2>
+            <p>Beste klant,</p>
+            <p>Je hebt succesvol een <strong>parkeerplaats gereserveerd</strong> bij Smart Parking.</p>
+            <h3>Reserveringsgegevens:</h3>
+            <ul>
+                <li><strong>Reserveringsnummer:</strong> {reservering.reservatienummer}</li>
+                <li><strong>Datum:</strong> {date.today()}</li>
+                <li><strong>Starttijd:</strong> {reservering.starttijd}</li>
+                <li><strong>Eindtijd:</strong> {reservering.eindtijd}</li>
+                <li><strong>Parkeerplaatslocatie:</strong> {locatie}</li>
+                <li><strong>Nummerplaat:</strong> {nummerplaat}</li>
+                <li><strong>Kosten:</strong> €{reservering.kosten:.2f}</li>
+            </ul>
+            <p>Bedankt voor je reservering bij <strong>Smart Parking</strong>. We kijken uit naar je bezoek!</p>
+            <br>
+            <p style="font-size: 12px; color: #7f8c8d;">Met vriendelijke groet,<br>
+            <strong>Het Smart Parking Team</strong></p>
+        </div>
+    </body>
+    </html>
+    """
+
+    # Maak de e-mail
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = receiver_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(html, 'html'))  # Alleen HTML-versie bijvoegen
+
+    # Verstuur de e-mail via Gmail SMTP-server
+    try:
+        print('Verbinding maken met de SMTP-server...')
+        with smtplib.SMTP('smtp.gmail.com', 587) as server:
+            server.set_debuglevel(1)  # Zet de debugmodus aan om te loggen
+            server.starttls()  # Start TLS-beveiliging
+            server.login(sender_email, 'mgoxlowhwjpudbdl')  # Gebruik je app-specifieke wachtwoord
+            server.sendmail(sender_email, receiver_email, msg.as_string())
+            print(f'E-mail succesvol verzonden naar {receiver_email}')
+    
+    except smtplib.SMTPException as e:
+        print(f"SMTP fout: {e}")
+    except Exception as e:
+        print(f"Onverwachte fout: {e}")
     
 @app.route('/api/reservaties', methods=['GET'])
 @jwt_required()
@@ -897,6 +1040,24 @@ def update_statistieken():
     return jsonify({"message": "Statistieken bijgewerkt!"}), 200
 
 
+def test_send_email():
+    print("test is bezig")
+    # Testgegevens voor de e-mail
+    test_reservering = {
+        'reservatienummer': '12345',
+        'starttijd': '2025-03-18 10:00:00',
+        'eindtijd': '2025-03-18 12:00:00'
+    }
+    nummerplaat = "AB-123-CD"
+    locatie = "Parkeerplaats A1"
+    email = 'bswinnen22@gmail.com'
+
+    # Test de e-mail functie
+    try:
+        send_confirmation_email(test_reservering, nummerplaat, locatie, email)
+        return jsonify({'status': 'success', 'message': 'Bevestigingsmail succesvol verstuurd!'}), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 
 
