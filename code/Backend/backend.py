@@ -16,6 +16,11 @@ from datetime import date
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+import cv2
+import pytesseract
+import numpy as np
+import re
+from io import BytesIO
 
 #!!!
 #school wifi laat geen mails versturen enkel op 4g of mogelijks andere wifi wel 
@@ -29,6 +34,7 @@ CORS(app, origins=["http://localhost:3000"], supports_credentials=True, )
 # Database configuratie
 app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost/parkeergarage_beheer'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['DEBUG'] = True  # Zet de debugmodus aan
 
 db = SQLAlchemy(app)
 
@@ -98,7 +104,129 @@ class Statistiek(db.Model):
     gemiddelde_duur = db.Column(db.Time, default=datetime.time(0, 0, 0))
     totale_inkomsten = db.Column(db.Numeric(10, 2), default=0.00)
 
+class Parkeerregistratie(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    kenteken = db.Column(db.String(20), unique=True, nullable=False)
+    ingangsdatum = db.Column(db.DateTime, nullable=False)
+    uitgangsdatum = db.Column(db.DateTime)
+    parkeerplaats = db.Column(db.String(100))
+
 # Routes voor API-eindpunten
+
+pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+
+LANDCODES = ['BA', 'NL', 'D', 'F', 'E', 'I', 'L', 'P', 'GB', 'B', 'A']
+
+def preprocess_image(image):
+    """
+    Verwerkt de afbeelding door:
+    1. Grijswaarden conversie
+    2. Scherpstellen van de afbeelding
+    3. Verhoog contrast
+    4. Ruisonderdrukking (Gaussian blur)
+    5. Binarisering (Thresholding)
+    """
+    # Stap 1: Converteer de afbeelding naar grijswaarden
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Stap 2: Pas een scherptefilter toe (Unsharp Mask)
+    kernel = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]])
+    sharpened = cv2.filter2D(gray, -1, kernel)
+
+    # Stap 3: Verhoog het contrast door adaptieve drempeling
+    thresh = cv2.adaptiveThreshold(sharpened, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+
+    # Stap 4: Pas Gaussian blur toe om ruis te verminderen
+    blur = cv2.GaussianBlur(thresh, (5, 5), 0)
+
+    return blur
+
+def preprocess_image(image):
+    """
+    Eenvoudige preprocessing van de afbeelding: converteer naar grijswaarden en pas drempeling toe.
+    """
+    # Converteer naar grijswaarden
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+
+    # Gebruik een eenvoudige drempeling (Thresholding) om de afbeelding te verbeteren voor OCR
+    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
+
+    return thresh
+
+def filter_ocr_text(ocr_text):
+    """
+    Filter de OCR-uitvoer om ongewenste tekens zoals 'I' naar '1' om te zetten en andere aanpassingen te doen.
+    """
+    # Maak alles lowercase voor consistentie
+    ocr_text = ocr_text.strip().upper()
+
+    # Vervang 'I' met '1' en andere bekende vervangingen
+    ocr_text = ocr_text.replace('I', '1')
+
+    # Verwijder alles wat geen cijfers of letters zijn
+    ocr_text = ''.join([c for c in ocr_text if c.isalnum()])
+
+    return ocr_text
+
+@app.route('/upload_image', methods=['POST'])
+def upload_image():
+    if 'image' not in request.files:
+        return jsonify({'error': 'No image uploaded'}), 400
+
+    file = request.files['image']
+    image = np.frombuffer(file.read(), np.uint8)
+    img = cv2.imdecode(image, cv2.IMREAD_COLOR)
+
+    # Stap 1: Preprocessing van de afbeelding
+    preprocessed_image = preprocess_image(img)
+
+    # Stap 2: Gebruik Tesseract voor OCR met aangepaste configuratie
+    custom_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
+    plate_text = pytesseract.image_to_string(preprocessed_image, config=custom_config)
+
+    # Verwerk de OCR-uitvoer
+    plate_text = filter_ocr_text(plate_text)
+    print(plate_text)
+
+    # Stap 3: Verwijder de landcode indien deze aanwezig is
+    for code in LANDCODES:
+        if plate_text.startswith(code):
+            plate_text = plate_text[len(code):].strip()
+            break
+
+    # Stap 4: Controleer of de nummerplaat langer is dan 10 tekens
+    if len(plate_text) > 10:
+        return jsonify({'error': 'De nummerplaat lijkt niet goed leesbaar of is te lang.'})
+    
+    # Stap 5: Controleer of het een geldig nummerplaat formaat is
+    if not re.match(r'^[A-Z0-9]{6,10}$', plate_text):
+        return jsonify({'error': 'De nummerplaat heeft een onjuist formaat.'}), 400
+
+    return jsonify({'nummerplaat': plate_text})
+
+
+@app.route('/verwijder_reservering', methods=['POST'])
+def verwijder_reservering():
+    data = request.get_json()
+    nummerplaat = data.get('nummerplaat')
+
+    # Zoek de reservering op basis van het kenteken
+    registratie = Parkeerregistratie.query.filter_by(kenteken=nummerplaat).first()
+
+    if not registratie:
+        return {"message": "Reservering niet gevonden"}, 404
+
+    # Verwijder de reservering
+    db.session.delete(registratie)
+    db.session.commit()
+
+    return {"message": "Reservering succesvol verwijderd"}, 200
+
+# Functie om tijdsduur te berekenen
+def bereken_tijdsduur(ingangsdatum, uitgangsdatum):
+    duur = uitgangsdatum - ingangsdatum
+    uren = duur.total_seconds() / 3600  # Zet om naar uren
+    return round(uren, 2)
 
 @app.route('/api/test-database', methods=['GET'])
 def test_database():
@@ -313,9 +441,6 @@ def check_numberplate():
     else:
         return jsonify({'status': 'not_found', 'message': 'Voertuig niet gevonden met deze nummerplaat'})
 
-
-# Functie om de e-mail te versturen
-
 def send_confirmation_email(reservering, nummerplaat, locatie, email):
     print('In de send_confirmation_email functie')
 
@@ -370,6 +495,133 @@ def send_confirmation_email(reservering, nummerplaat, locatie, email):
         print(f"SMTP fout: {e}")
     except Exception as e:
         print(f"Onverwachte fout: {e}")
+        
+@app.route('/save_numberplate_time', methods=['POST'])
+def save_numberplate_time():
+    data = request.get_json()
+    nummerplaat = data.get('nummerplaat')
+    tijd = data.get('tijd')  # Dit is de tijd die je ontvangt van de frontend
+
+    # Converteer de tijd naar een datetime object
+    try:
+        tijd = datetime.datetime.fromisoformat(tijd)  # Gebruik datetime.datetime hier
+    except ValueError:
+        return {"message": "Ongeldig tijdsformaat"}, 400
+
+    # Maak een nieuwe parkeerregistratie aan
+    new_registratie = Parkeerregistratie(kenteken=nummerplaat, ingangsdatum=tijd)
+    db.session.add(new_registratie)
+    db.session.commit()
+
+    return {"message": "Nummerplaat en tijd succesvol opgeslagen"}, 200
+
+@app.route('/check_numberplate_uit', methods=['POST'])
+def check_numberplate_uit():
+    nummerplaat = request.json.get('nummerplaat')
+    print("juiste functie lets go")
+    
+    # Zoek het voertuig op basis van de nummerplaat
+    voertuig = Voertuig.query.filter_by(nummerplaat=nummerplaat).first()
+    
+    if voertuig:
+        # Zoek de bijbehorende reservering via voertuig_id en filter op de huidige datum
+        vandaag = date.today()
+        reservering = Reservatie.query.filter(
+            Reservatie.voertuig_id == voertuig.id,
+            func.date(Reservatie.starttijd) == vandaag
+        ).first()
+        
+        if reservering:
+            # Zoek de parkeerplaats op basis van het parkeerplaats_id in de reservering
+            parkeerplaats = Parkeerplaats.query.filter_by(id=reservering.parkeerplaats_id).first()
+            
+            if parkeerplaats:
+                # Verkrijg de gebruiker en zijn e-mailadres via de reservering
+                gebruiker = Gebruiker.query.filter_by(id=reservering.gebruiker_id).first()
+                if gebruiker:
+                    email = gebruiker.email  # Haal het e-mailadres op van de gebruiker
+                else:
+                    email = None  # Indien geen gebruiker gevonden, zet e-mail naar None
+
+                # Bouw de response met de gegevens
+                response = {
+                    'status': 'found',
+                    'nummerplaat': nummerplaat,
+                    'reservatienummer': reservering.reservatienummer,
+                    'starttijd': reservering.starttijd.isoformat(),
+                    'eindtijd': reservering.eindtijd.isoformat(),
+                    'status': reservering.status,
+                    'locatie': parkeerplaats.locatie  # Voeg locatie van de parkeerplaats toe
+                }
+
+                # Verzend de e-mail met de benodigde gegevens
+                send_exit_confirmation_email(reservering, nummerplaat, parkeerplaats.locatie, email)  # E-mail functie apart aanroepen
+                
+                return jsonify(response)
+            else:
+                return jsonify({'status': 'not_found', 'message': 'Parkeerplaats niet gevonden voor deze reservering'})
+        else:
+            return jsonify({'status': 'not_found', 'message': 'Geen reservering gevonden voor vandaag'})
+    else:
+        return jsonify({'status': 'not_found', 'message': 'Voertuig niet gevonden met deze nummerplaat'})
+    
+def send_exit_confirmation_email(reservering, nummerplaat, locatie, email):
+    print('In de send_exit_confirmation_email functie')
+
+    # E-mailgegevens
+    sender_email = "bramswinnen1@gmail.com"
+    receiver_email = email  # Het e-mailadres van de klant
+    subject = f"Uitgangsbevestiging - Smart Parking - Reservering {reservering.reservatienummer}"
+
+    # HTML e-mailinhoud
+    html = f"""
+    <html>
+    <body style="font-family: Arial, sans-serif; color: #333;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px;">
+            <h2 style="color: #2c3e50;">Je hebt Smart Parking verlaten</h2>
+            <p>Beste klant,</p>
+            <p>Je bent zojuist <strong>uitgereden bij Smart Parking</strong>. Jouw nummerplaat <strong>{nummerplaat}</strong> is herkend en afgemeld bij de reservering.</p>
+            <h3>Reserveringsgegevens:</h3>
+            <ul>
+                <li><strong>Reserveringsnummer:</strong> {reservering.reservatienummer}</li>
+                <li><strong>Datum:</strong> {date.today()}</li>
+                <li><strong>Starttijd:</strong> {reservering.starttijd}</li>
+                <li><strong>Eindtijd:</strong> {reservering.eindtijd}</li>
+                <li><strong>Parkeerplaatslocatie:</strong> {locatie}</li>
+            </ul>
+            <p>Bedankt voor je bezoek aan <strong>Smart Parking</strong>. Wij hopen je snel weer te zien!</p>
+            <br>
+            <p style="font-size: 12px; color: #7f8c8d;">Met vriendelijke groet,<br>
+            <strong>Het Smart Parking Team</strong></p>
+        </div>
+    </body>
+    </html>
+    """
+
+    # Maak de e-mail
+    msg = MIMEMultipart()
+    msg['From'] = sender_email
+    msg['To'] = receiver_email
+    msg['Subject'] = subject
+    msg.attach(MIMEText(html, 'html'))  # Alleen HTML-versie bijvoegen
+
+    # Verstuur de e-mail via Gmail SMTP-server
+    try:
+        print('Verbinding maken met de SMTP-server...')
+        with smtplib.SMTP('smtp.gmail.com', 587) as server:
+            server.set_debuglevel(1)  # Zet de debugmodus aan om te loggen
+            server.starttls()  # Start TLS-beveiliging
+            server.login(sender_email, 'mgoxlowhwjpudbdl')  # Gebruik je app-specifieke wachtwoord
+            server.sendmail(sender_email, receiver_email, msg.as_string())
+            print(f'E-mail succesvol verzonden naar {receiver_email}')
+    
+    except smtplib.SMTPException as e:
+        print(f"SMTP fout: {e}")
+    except Exception as e:
+        print(f"Onverwachte fout: {e}")
+
+
+
 
 
 
@@ -578,7 +830,6 @@ def update_reservaties_route():
     update_reservaties()
     return jsonify({'message': 'Reserveringen bijgewerkt'}), 200
 
-
 @app.route('/api/reservaties', methods=['POST'])
 def create_reservatie():
     data = request.get_json()
@@ -748,7 +999,7 @@ def get_reservaties():
         return jsonify(reservaties_list), 200
     return jsonify({'message': 'Geen actieve reserveringen gevonden'}), 404
 
-
+#niet in gebruik mogelijks nog wel
 @app.route('/api/betaling', methods=['POST'])
 def add_betaling():
     data = request.get_json()
@@ -806,24 +1057,59 @@ def get_current_user():
         }), 200
     return jsonify({'message': 'Gebruiker niet gevonden'}), 404  
 
+gecontroleerde_parkeringen = []
+
 @app.route('/get_available_parking', methods=['POST'])
 def get_available_parking():
     grootte = request.json.get('grootte')
     soort = request.json.get('soort')
 
+    # Verkrijg de huidige datum
+    vandaag = datetime.datetime.now().date()
+
     # Zoek beschikbare parkeerplaatsen op basis van grootte en soort
     beschikbare_parkeringen = Parkeerplaats.query.filter_by(status='beschikbaar', grootte=grootte, soort=soort).all()
 
+    # Als er parkeerplaatsen beschikbaar zijn, controleren we of ze al zijn gereserveerd
     if beschikbare_parkeringen:
         # Draai de lijst om zodat we van achter naar voren zoeken
         beschikbare_parkeringen.reverse()
-        
-        # Geef de eerste beschikbare parkeerplaats van de omgekeerde lijst terug
-        parkeerplaats = beschikbare_parkeringen[0]
-        return jsonify({'parkering': {'id': parkeerplaats.id, 'locatie': parkeerplaats.locatie, 'grootte': parkeerplaats.grootte, 'soort': parkeerplaats.soort}})
+
+        for parkeerplaats in beschikbare_parkeringen:
+            # Check of deze parkeerplaats al in de lijst van gecontroleerde parkeerplaatsen staat
+            if parkeerplaats.id in gecontroleerde_parkeringen:
+                continue  # Als deze al gecontroleerd is, zoek dan verder
+
+            # Voeg deze parkeerplaats toe aan de lijst van gecontroleerde parkeerplaatsen
+            gecontroleerde_parkeringen.append(parkeerplaats.id)
+
+            # Controleer of de parkeerplaats al gereserveerd is voor de huidige dag
+            reserveringen_op_dag = Reservatie.query.filter(
+                Reservatie.parkeerplaats_id == parkeerplaats.id,
+                func.date(Reservatie.starttijd) <= vandaag,  # Gebruik de func.date om de datum te vergelijken
+                func.date(Reservatie.eindtijd) >= vandaag,   # Gebruik de func.date om de datum te vergelijken
+                Reservatie.status != 'geannuleerd'          # Status mag niet geannuleerd zijn
+            ).all()
+
+            # Als er geen reserveringen voor de parkeerplaats op de huidige dag zijn, geef deze dan terug
+            if not reserveringen_op_dag:
+                return jsonify({
+                    'parkering': {
+                        'id': parkeerplaats.id,
+                        'locatie': parkeerplaats.locatie,
+                        'grootte': parkeerplaats.grootte,
+                        'soort': parkeerplaats.soort
+                    }
+                })
+
+        # Als we hier komen, betekent het dat alle parkeerplaatsen zijn gereserveerd
+        return jsonify({'message': 'Geen parkeerplaats beschikbaar'}), 404
+
     else:
         return jsonify({'message': 'Geen parkeerplaats beschikbaar'}), 404
     
+gereserveerde_parkeerplaatsen = []
+
 @app.route('/api/reservaties', methods=['POST'])
 def make_reservation():
     try:
@@ -836,37 +1122,11 @@ def make_reservation():
         gebruiker_id = request.json.get('gebruiker_id', 1)  # Standaard naar 1 als geen gebruiker_id wordt meegegeven
 
         # Log de ontvangen data
-        print(f"Ontvangen data: {request.json}")
+        app.logger.info(f"Ontvangen data: {request.json}")
 
         # Controleer of alle vereiste gegevens aanwezig zijn
         if not nummerplaat or not eindtijd or not parkeerplaats_id or not grootte or not soort:
             raise BadRequest("Niet alle benodigde gegevens zijn ontvangen")
-
-        # Zoek het voertuig op basis van nummerplaat
-        voertuig = Voertuig.query.filter_by(nummerplaat=nummerplaat).first()
-
-        if voertuig is None:
-            # Als het voertuig niet wordt gevonden, gebruik dan een fallback voertuig (bijv. voertuig_id = 10000)
-            voertuig = Voertuig.query.filter_by(id=10000).first()  # Fallback voertuig met id 10000
-            if voertuig is None:
-                # Voeg het fallback voertuig toe als het nog niet bestaat
-                voertuig = Voertuig(
-                    id=10000, 
-                    nummerplaat="fallback-nummerplaat", 
-                    merk="default", 
-                    model="default", 
-                    kleur="default", 
-                    grootte="medium", 
-                    soort="standaard"
-                )
-                db.session.add(voertuig)
-                db.session.commit()
-                print(f"Fallback voertuig met id 10000 toegevoegd.")
-            voertuig_id = voertuig.id
-            print(f"Voertuig met nummerplaat {nummerplaat} niet gevonden. Gebruik fallback voertuig_id: {voertuig_id}")
-        else:
-            voertuig_id = voertuig.id
-            print(f"Voertuig gevonden: {voertuig}, ID: {voertuig_id}")
 
         # Zoek de parkeerplaats op basis van parkeerplaats_id
         parkeerplaats = Parkeerplaats.query.filter_by(id=parkeerplaats_id).first()
@@ -874,17 +1134,19 @@ def make_reservation():
         if parkeerplaats is None:
             raise BadRequest(f'Parkeerplaats met ID {parkeerplaats_id} bestaat niet.')
 
+        # Controleer of de parkeerplaats al gereserveerd is in de tijdelijke lijst
+        if parkeerplaats_id in gereserveerde_parkeerplaatsen:
+            raise BadRequest("Deze parkeerplaats is al tijdelijk gereserveerd.")
+
+        # Voeg de parkeerplaats toe aan de lijst van gereserveerde parkeerplaatsen
+        gereserveerde_parkeerplaatsen.append(parkeerplaats_id)
+        app.logger.info(f"Gereserveerde parkeerplaatsen: {gereserveerde_parkeerplaatsen}")
+
         # Gebruik dateutil.parser om de eindtijd om te zetten naar datetime (aware datetime)
         eindtijd = parser.isoparse(eindtijd)
 
-        # Log de geconverteerde eindtijd
-        print(f"Geconverteerde eindtijd: {eindtijd}")
-
         # Zet de starttijd naar de huidige UTC tijd, als een aware datetime
         starttijd = datetime.datetime.now(pytz.utc)
-
-        # Log de starttijd
-        print(f"Starttijd (UTC): {starttijd}")
 
         # Bereken de tijdsduur van de reservering en de kosten
         tijd_duur = eindtijd - starttijd
@@ -900,40 +1162,31 @@ def make_reservation():
         # Maak de reservering aan
         reservatie = Reservatie(
             reservatienummer=reservatienummer,
-            gebruiker_id=gebruiker_id,  # Gebruik de ontvangen of standaard gebruiker_id
-            voertuig_id=voertuig_id,  # Gebruik het voertuig_id (zelfs als fallback)
+            gebruiker_id=gebruiker_id,
+            voertuig_id=10000,  # Dit kan je aanpassen naar het juiste voertuig_id
             parkeerplaats_id=parkeerplaats.id,
             starttijd=starttijd,
             eindtijd=eindtijd,
             kosten=kosten
         )
 
-        # Log de reservering voordat deze wordt toegevoegd
-        print(f"Reservering klaar om toegevoegd te worden: {reservatie}")
-
         # Voeg de reservering toe aan de database
         db.session.add(reservatie)
         db.session.commit()
 
         # Log het succes
-        print(f"Reservering succesvol toegevoegd: {reservatie}")
-
-        # Hier kan je een check toevoegen voor CORS/axios errors
-        try:
-            # Probeer je request naar een externe API of service (bijvoorbeeld voor CORS)
-            # Dit is een voorbeeld van een call naar een andere API als je dat nodig hebt
-            external_response = requests.post("EXTERNE_API_URL", json={'data': 'test'})
-            print(f"Externe API response: {external_response.status_code}")
-        except requests.exceptions.RequestException as e:
-            # CORS of axios error wordt hier opgevangen, maar we maken de reservering alsnog
-            print(f"CORS of netwerkfout opgetreden, maar reservering wordt toch gemaakt. Fout: {str(e)}")
+        app.logger.info(f"Reservering succesvol toegevoegd: {reservatie}")
 
         return jsonify({'message': 'Reservering succesvol aangemaakt!', 'reservatienummer': reservatienummer}), 201
 
     except Exception as e:
-        # Foutafhandeling
-        print(f"Er is een fout opgetreden: {str(e)}")
+        # Verwijder de parkeerplaats uit de lijst als er een fout optreedt
+        if parkeerplaats_id in gereserveerde_parkeerplaatsen:
+            gereserveerde_parkeerplaatsen.remove(parkeerplaats_id)
+
+        app.logger.error(f"Er is een fout opgetreden: {str(e)}")
         return jsonify({'message': 'Er is een fout opgetreden bij het aanmaken van de reservering.'}), 500
+
 
 @app.route('/api/reserveringen', methods=['GET'])
 def get_reserveringen():
@@ -955,7 +1208,6 @@ def get_parkeerplaatsen():
         'locatie': p.locatie,
         'soort': p.soort
     } for p in parkeerplaatsen])
-
 
 @app.route('/api/statistieken', methods=['GET'])
 def get_statistieken():
@@ -1038,28 +1290,6 @@ def update_statistieken():
     db.session.commit()
 
     return jsonify({"message": "Statistieken bijgewerkt!"}), 200
-
-
-def test_send_email():
-    print("test is bezig")
-    # Testgegevens voor de e-mail
-    test_reservering = {
-        'reservatienummer': '12345',
-        'starttijd': '2025-03-18 10:00:00',
-        'eindtijd': '2025-03-18 12:00:00'
-    }
-    nummerplaat = "AB-123-CD"
-    locatie = "Parkeerplaats A1"
-    email = 'bswinnen22@gmail.com'
-
-    # Test de e-mail functie
-    try:
-        send_confirmation_email(test_reservering, nummerplaat, locatie, email)
-        return jsonify({'status': 'success', 'message': 'Bevestigingsmail succesvol verstuurd!'}), 200
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-
 
 # Start de server
 if __name__ == '__main__':

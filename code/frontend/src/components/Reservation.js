@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function Reservation() {
   const [selectedDate, setSelectedDate] = useState(""); // Bewaar de geselecteerde datum
+  const [minDate, setMinDate] = useState(""); // Minimum datum (minstens één dag verder)
   const navigate = useNavigate(); // 🚀 Gebruik de navigatie-hook
 
   // Functie om de datum bij te werken
@@ -10,12 +11,30 @@ export default function Reservation() {
     setSelectedDate(event.target.value);
   };
 
+  // Stel de minimum datum in bij het laden van de component
+  useEffect(() => {
+    const today = new Date();
+    today.setDate(today.getDate() + 1); // Voeg 1 dag toe aan de huidige datum
+    const formattedDate = today.toISOString().split("T")[0]; // Zet het in het juiste formaat (YYYY-MM-DD)
+    setMinDate(formattedDate); // Stel de minimum datum in
+  }, []);
+
   // Functie om door te gaan naar de verdieping, waarbij de geselecteerde datum wordt doorgestuurd
   const goToFloor = (floor) => {
     if (!selectedDate) {
       alert("Selecteer eerst een datum.");
       return;
     }
+    
+    const selectedDateObj = new Date(selectedDate);
+    const minDateObj = new Date(minDate);
+
+    // Controleer of de geselecteerde datum minstens één dag in de toekomst is
+    if (selectedDateObj < minDateObj) {
+      alert("Je kunt niet reserveren voor de dag van vandaag of het verleden. Kies een datum minimaal één dag verder.");
+      return;
+    }
+
     // Navigeren naar de verdieping, met de datum in de queryparameter
     navigate(`/verdiep-${floor}?datum=${selectedDate}`);
   };
@@ -34,6 +53,7 @@ export default function Reservation() {
           value={selectedDate}
           onChange={handleDateChange}
           className="px-4 py-2 border rounded-md"
+          min={minDate} // Voorkom dat de gebruiker een datum selecteert die vóór de minimumdatum ligt
         />
       </div>
 

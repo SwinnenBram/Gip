@@ -46,7 +46,10 @@ const Header = () => {
                 <Link to="/reservation" className="navbar-link">Reservering</Link> {/* Link naar Reservation toegevoegd */}
               </li>
               <li className="navbar-item">
-                <Link to="/nummerplaat" className="navbar-link">Nummerplaat</Link> {/* Link naar Reservation toegevoegd */}
+                <Link to="/nummerplaat" className="navbar-link">nummerplaat</Link> {/* Link naar Reservation toegevoegd */}
+              </li>
+              <li className="navbar-item">
+                <Link to="/checknummerplaat" className="navbar-link">uit</Link> {/* Link naar Reservation toegevoegd */}
               </li>
               <li className="navbar-item">
                 <Link to="/AdminDashboard" className="navbar-link">Admin</Link> {/* Link naar nummerplaat toegevoegd */}

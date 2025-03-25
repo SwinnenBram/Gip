@@ -16,6 +16,8 @@ import Parkeerplaatsen from './parking/Parkeerplaatsen'; // De algemene pagina v
 import Nummerplaat from './components/nummerplaat';
 import ReserveerdDirect from "./components/reserveer_direct";
 import AdminDashboard from './components/admindashboard';
+import CheckNummerplaat from './components/CheckNummerplaat';
+import Betalingspagina from './components/Betalingspagina';
 
 
 // 🔹 ProtectedRoute: Zorgt dat alleen ingelogde gebruikers de pagina's zien
@@ -100,6 +102,24 @@ const App = () => {
             element={
               <ProtectedRoute>
                 <Nummerplaat />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/checknummerplaat"  
+            element={
+              <ProtectedRoute>
+                <CheckNummerplaat />
+              </ProtectedRoute>
+            } 
+          />
+
+          <Route 
+            path="/Betalingspagina"  
+            element={
+              <ProtectedRoute>
+                <Betalingspagina/>
               </ProtectedRoute>
             } 
           />
