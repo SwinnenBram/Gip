@@ -1,19 +1,25 @@
 import React, { useState } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
-import { useNavigate } from "react-router-dom";  // Importeer useNavigate
+import { useNavigate } from "react-router-dom";
 
 const CheckNummerplaat = () => {
-  const [nummerplaat, setNummerplaat] = useState(""); // Nummerplaat invoer
-  const [loading, setLoading] = useState(false); // Laadstatus
-  const navigate = useNavigate();  // Gebruik de navigate functie
+  const [nummerplaat, setNummerplaat] = useState("");
+  const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
-  // Functie om nummerplaat op te slaan
   const handleNummerplaatChange = (e) => {
     setNummerplaat(e.target.value);
   };
 
-  // Functie om de reservering op te halen
+  const berekenPrijs = (minuten) => {
+    const uur = minuten / 60;
+    if (uur <= 1) return 5; 
+    if (uur <= 3) return 5 + (uur - 1) * 5;
+    if (uur <= 6) return 5 + 2 * 5 + (uur - 3) * 4;
+    return Math.min(20, 5 + 2 * 5 + 3 * 4 + (uur - 6) * 3);
+  };
+
   const fetchReservering = async () => {
     if (!nummerplaat) {
       Swal.fire("Fout!", "Vul alstublieft een nummerplaat in.", "error");
@@ -28,25 +34,19 @@ const CheckNummerplaat = () => {
         { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
       );
 
-      console.log("🔎 API Response Data:", response.data);
-
-      // Controleer of er een reservering is gevonden
-      if (!response.data || response.data.status === 'not_found') {
+      if (!response.data || response.data.status === "not_found") {
         Swal.fire("Fout!", "Geen reservering gevonden voor deze nummerplaat.", "error");
         return;
       }
 
-      // Bereken het bedrag voor betaling
       let starttijd = new Date(response.data.starttijd);
       let eindtijd = new Date();
-      let verschil = (eindtijd - starttijd) / 1000 / 60; // Minuten
-      let tariefPerMinuut = 5 / 60; // €5 per uur, dus per minuut
-      let bedrag = Math.max(60 * tariefPerMinuut, verschil * tariefPerMinuut); // Minimaal 1 uur betalen
+      let verschil = (eindtijd - starttijd) / 1000 / 60;
+      let bedrag = berekenPrijs(verschil);
 
-      // Toon betalingspagina
-      navigate('/betalingspagina', { state: { nummerplaat, bedrag } });
+      navigate("/betalingspagina", { state: { nummerplaat, bedrag } });
     } catch (error) {
-      console.error("⚠️ Fout bij ophalen reservering:", error);
+      console.error("Fout bij ophalen reservering:", error);
       Swal.fire("Fout", "Er is een fout opgetreden bij het ophalen van de reservering.", "error");
     } finally {
       setLoading(false);

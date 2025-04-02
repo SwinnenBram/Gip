@@ -20,7 +20,6 @@ const Login = () => {
       });
   
       if (response.data.access_token) {
-        console.log("Login succesvol, token ontvangen");
         localStorage.setItem('token', response.data.access_token);
   
         // Sla de gebruiker ID apart op

@@ -18,7 +18,7 @@ import ReserveerdDirect from "./components/reserveer_direct";
 import AdminDashboard from './components/admindashboard';
 import CheckNummerplaat from './components/CheckNummerplaat';
 import Betalingspagina from './components/Betalingspagina';
-
+import HomePage from './components/HomePage'; // Zorg ervoor dat deze import correct is
 
 // 🔹 ProtectedRoute: Zorgt dat alleen ingelogde gebruikers de pagina's zien
 const ProtectedRoute = ({ children }) => {
@@ -59,8 +59,7 @@ const App = () => {
           {/* Publieke routes */}
           <Route path="/register" element={<Register />} />
           <Route path="/login" element={<Login />} />
-          <Route path="/nummerplaat" element={<Nummerplaat/>}/>
-          <Route path="/" element={<h1>Welcome to the Smart Parking Garage!</h1>} />
+          <Route path="/" element={<HomePage />} /> {/* Verander de route voor de homepage */}
 
           {/* Beveiligde routes */}
           <Route 
@@ -132,7 +131,6 @@ const App = () => {
               </ProtectedRoute>
             } 
           />
-
           <Route 
             path="/verdiep-1"  
             element={

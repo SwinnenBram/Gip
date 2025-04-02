@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, abort
+from flask import Flask, jsonify, request
 from flask_cors import CORS
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash
@@ -16,11 +16,12 @@ from datetime import date
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-import cv2
 import pytesseract
 import numpy as np
 import re
-from io import BytesIO
+import io
+from PIL import Image
+import easyocr
 
 #!!!
 #school wifi laat geen mails versturen enkel op 4g of mogelijks andere wifi wel 
@@ -115,94 +116,200 @@ class Parkeerregistratie(db.Model):
 
 pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 
-LANDCODES = ['BA', 'NL', 'D', 'F', 'E', 'I', 'L', 'P', 'GB', 'B', 'A']
+reader = easyocr.Reader(['en'])  # 'en' is voor Engels, je kunt meer talen toevoegen zoals 'nl', 'fr', etc.
 
-def preprocess_image(image):
-    """
-    Verwerkt de afbeelding door:
-    1. Grijswaarden conversie
-    2. Scherpstellen van de afbeelding
-    3. Verhoog contrast
-    4. Ruisonderdrukking (Gaussian blur)
-    5. Binarisering (Thresholding)
-    """
-    # Stap 1: Converteer de afbeelding naar grijswaarden
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+# Reguliere expressies voor nummerplaten, met spaties, streepjes, en speciale tekens toegestaan
+BELGIUM_PLATE_REGEX = r"\d{1}\s*-?\s*[A-Za-z]{3}\s*-?\s*\d{3}"  # België nummerplaat (oude formaat)
+BELGIUM_PLATE_REGEX_V2 = r"\d{1}\s*-?\s*[A-Za-z]{2}\s*-?\s*\d{4}"  # Alternatief Belgisch formaat voor oldtimers
 
-    # Stap 2: Pas een scherptefilter toe (Unsharp Mask)
-    kernel = np.array([[-1, -1, -1], [-1, 9, -1], [-1, -1, -1]])
-    sharpened = cv2.filter2D(gray, -1, kernel)
+NETHERLANDS_PLATE_REGEX = r"[A-Za-z]{2}\s*-?\s*\d{2}\s*-?\s*\d{2}"  # Nederland nummerplaat (format 1)
+NETHERLANDS_PLATE_REGEX2 = r"\d{2}\s*-?\s*\d{2}\s*-?\s*[A-Za-z]{2}"  # Nederland nummerplaat (format 2)
+NETHERLANDS_PLATE_REGEX3 = r"\d{2}\s*-?\s*[A-Za-z]{2}\s*-?\s*\d{2}"  # Nederland nummerplaat (format 3)
+NETHERLANDS_PLATE_REGEX21 = r"[A-Za-z]\s*\d{3}\s*[A-Za-z]{2}"  # A 123 BC
+NETHERLANDS_PLATE_REGEX22 = r"[A-Za-z]{2}\s*\d{3}\s*[A-Za-z]"  # AB 123 C
 
-    # Stap 3: Verhoog het contrast door adaptieve drempeling
-    thresh = cv2.adaptiveThreshold(sharpened, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+FRANCE_PLATE_REGEX = r"[A-Za-z]{2}\s*-?\s*\d{3}\s*-?\s*[A-Za-z]{2}"  # Franse nummerplaat met spaties en streepjes
+FRANCE_PLATE_REGEX2 = r"\d{3}\s*-?\s*[A-Za-z]{3}\s*-?\s*\d{2}"  # Frankrijk nummerplaat (format 2)
 
-    # Stap 4: Pas Gaussian blur toe om ruis te verminderen
-    blur = cv2.GaussianBlur(thresh, (5, 5), 0)
+GERMANY_PLATE_REGEX = r"[A-Za-z]{1,3}-\d{1,4}"  # Duitsland nummerplaat (format 1)
+GERMANY_PLATE_REGEX2 = r"[A-Za-z]{1,3}-[A-Za-z]{1,2} \d{1,4}"  # Duitsland nummerplaat (format 2)
 
-    return blur
+# Functie om ongewenste tekens (zoals #, ., -, etc.) te verwijderen
+def clean_text(text):
+    # Verwijder alle speciale tekens, inclusief punten en streepjes
+    cleaned_text = re.sub(r'[^\w\s]', '', text)  # Behoud alleen letters, cijfers en spaties
+    return cleaned_text
 
-def preprocess_image(image):
-    """
-    Eenvoudige preprocessing van de afbeelding: converteer naar grijswaarden en pas drempeling toe.
-    """
-    # Converteer naar grijswaarden
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+# Functie om verwarrende tekens te vervangen (zoals 0 -> O, 4 -> A, Q -> 0)
+def replace_confusing_chars(text):
+    # Vervang verwarrende cijfers door letters alleen als het echt nodig is
+    text = text.replace('0', 'O')  # Vervang 0 door O
+    text = text.replace('4', 'A')  # Vervang 4 door A
+    text = text.replace('Q', '0')  # Vervang Q door 0
+    text = text.replace('L', '1')  # Vervang L door 1
+    return text
 
-    # Gebruik een eenvoudige drempeling (Thresholding) om de afbeelding te verbeteren voor OCR
-    _, thresh = cv2.threshold(gray, 150, 255, cv2.THRESH_BINARY)
+# Functie om nummerplaat te vinden
+def extract_license_plate(text):
+    # Eerst de tekst schoonmaken en controleren
+    cleaned_text = clean_text(text)
 
-    return thresh
+    # Controleer of de tekst geen begin cijfer heeft en voeg 1 toe als dat het geval is
+    if not re.match(r'\d', cleaned_text):  # Als de tekst niet begint met een cijfer
+        cleaned_text = '1 ' + cleaned_text  # Voeg standaard een '1' voor de nummerplaat
 
-def filter_ocr_text(ocr_text):
-    """
-    Filter de OCR-uitvoer om ongewenste tekens zoals 'I' naar '1' om te zetten en andere aanpassingen te doen.
-    """
-    # Maak alles lowercase voor consistentie
-    ocr_text = ocr_text.strip().upper()
+    # Eerst proberen voor Belgische nummerplaten
+    if re.search(BELGIUM_PLATE_REGEX, cleaned_text):
+        return re.search(BELGIUM_PLATE_REGEX, cleaned_text).group(0)
 
-    # Vervang 'I' met '1' en andere bekende vervangingen
-    ocr_text = ocr_text.replace('I', '1')
+    if re.search(BELGIUM_PLATE_REGEX_V2, cleaned_text):
+        return re.search(BELGIUM_PLATE_REGEX_V2, cleaned_text).group(0)
 
-    # Verwijder alles wat geen cijfers of letters zijn
-    ocr_text = ''.join([c for c in ocr_text if c.isalnum()])
+    # Nederlandse nummerplaten
+    if re.search(NETHERLANDS_PLATE_REGEX, cleaned_text):
+        return re.search(NETHERLANDS_PLATE_REGEX, cleaned_text).group(0)
 
-    return ocr_text
+    if re.search(NETHERLANDS_PLATE_REGEX2, cleaned_text):
+        return re.search(NETHERLANDS_PLATE_REGEX2, cleaned_text).group(0)
+
+    if re.search(NETHERLANDS_PLATE_REGEX3, cleaned_text):
+        return re.search(NETHERLANDS_PLATE_REGEX3, cleaned_text).group(0)
+    
+    if re.search(NETHERLANDS_PLATE_REGEX21, cleaned_text):
+        return re.search(NETHERLANDS_PLATE_REGEX21, cleaned_text).group(0)
+    
+    # Nederlands (AB 123 C)
+    if re.search(NETHERLANDS_PLATE_REGEX22, cleaned_text):
+        return re.search(NETHERLANDS_PLATE_REGEX22, cleaned_text).group(0)
+
+    # Franse nummerplaten
+    if re.search(FRANCE_PLATE_REGEX, cleaned_text):
+        return re.search(FRANCE_PLATE_REGEX, cleaned_text).group(0)
+
+    if re.search(FRANCE_PLATE_REGEX2, cleaned_text):
+        return re.search(FRANCE_PLATE_REGEX2, cleaned_text).group(0)
+
+    # Duitse nummerplaten
+    if re.search(GERMANY_PLATE_REGEX, cleaned_text):
+        return re.search(GERMANY_PLATE_REGEX, cleaned_text).group(0)
+
+    if re.search(GERMANY_PLATE_REGEX2, cleaned_text):
+        return re.search(GERMANY_PLATE_REGEX2, cleaned_text).group(0)
+    
+    # Stap 3: Als de eerste poging geen resultaat oplevert, probeer verwisselingen
+    cleaned_text = replace_confusing_chars(cleaned_text)
+
+    # Herhaal de checks na vervangingen
+    if re.search(BELGIUM_PLATE_REGEX, cleaned_text):
+        return re.search(BELGIUM_PLATE_REGEX, cleaned_text).group(0)
+
+    if re.search(BELGIUM_PLATE_REGEX_V2, cleaned_text):
+        return re.search(BELGIUM_PLATE_REGEX_V2, cleaned_text).group(0)
+
+    if re.search(NETHERLANDS_PLATE_REGEX, cleaned_text):
+        return re.search(NETHERLANDS_PLATE_REGEX, cleaned_text).group(0)
+
+    if re.search(NETHERLANDS_PLATE_REGEX2, cleaned_text):
+        return re.search(NETHERLANDS_PLATE_REGEX2, cleaned_text).group(0)
+
+    if re.search(NETHERLANDS_PLATE_REGEX3, cleaned_text):
+        return re.search(NETHERLANDS_PLATE_REGEX3, cleaned_text).group(0)
+    
+    if re.search(NETHERLANDS_PLATE_REGEX21, cleaned_text):
+        return re.search(NETHERLANDS_PLATE_REGEX21, cleaned_text).group(0)
+    
+    if re.search(NETHERLANDS_PLATE_REGEX22, cleaned_text):
+        return re.search(NETHERLANDS_PLATE_REGEX22, cleaned_text).group(0)
+
+    if re.search(FRANCE_PLATE_REGEX, cleaned_text):
+        return re.search(FRANCE_PLATE_REGEX, cleaned_text).group(0)
+
+    if re.search(FRANCE_PLATE_REGEX2, cleaned_text):
+        return re.search(FRANCE_PLATE_REGEX2, cleaned_text).group(0)
+
+    if re.search(GERMANY_PLATE_REGEX, cleaned_text):
+        return re.search(GERMANY_PLATE_REGEX, cleaned_text).group(0)
+
+    if re.search(GERMANY_PLATE_REGEX2, cleaned_text):
+        return re.search(GERMANY_PLATE_REGEX2, cleaned_text).group(0)
+    
+    return None
+
+# Functie om nummerplaat te formatteren
+def format_license_plate(license_plate):
+    license_plate = license_plate.upper()
+
+    # Belgische nummerplaat
+    if re.match(r"\d{1}\s*[A-Za-z]{3}\s*\d{3}", license_plate):
+        license_plate = re.sub(r"(\d)([A-Za-z]{3})(\d{3})", r"\1 \2 \3", license_plate)
+    
+    # Nederlandse nummerplaat (format 1: 22 DA 89)
+    elif re.match(r"\d{2}\s*[A-Za-z]{2}\s*\d{2}", license_plate):
+        license_plate = re.sub(r"(\d{2})([A-Za-z]{2})(\d{2})", r"\1 \2 \3", license_plate)
+
+    # Nederlandse nummerplaat (format 2: 12 34 AB)
+    elif re.match(r"\d{2}\s*-?\s*\d{2}\s*-?\s*[A-Za-z]{2}", license_plate):
+        license_plate = re.sub(r"(\d{2})([A-Za-z]{2})(\d{2})", r"\1 \2 \3", license_plate)
+
+    # Nederlandse nummerplaat (A 123 BC)
+    elif re.match(r"[A-Za-z]\s*\d{3}\s*[A-Za-z]{2}", license_plate):
+        license_plate = re.sub(r"([A-Za-z])\s*(\d{3})\s*([A-Za-z]{2})", r"\1 \2 \3", license_plate)
+
+    # Nederlandse nummerplaat (ab 123 c)
+    elif re.match(r"[A-Za-z]{2}\s*\d{3}\s*[A-Za-z]", license_plate):
+        license_plate = re.sub(r"([A-Za-z]{2})\s*(\d{3})\s*([A-Za-z])", r"\1 \2 \3", license_plate)
+
+
+    # Franse nummerplaat
+    elif re.match(r"[A-Za-z]{2}\s*\d{3}\s*[A-Za-z]{2}", license_plate):
+        license_plate = re.sub(r"([A-Za-z]{2})(\d{3})([A-Za-z]{2})", r"\1 \2 \3", license_plate)
+    
+    # Duitse nummerplaat
+    elif re.match(r"[A-Za-z]{1,3}-\d{1,4}", license_plate):
+        license_plate = re.sub(r"([A-Za-z]{1,3})-(\d{1,4})", r"\1-\2", license_plate)
+
+    # Verwijder dubbele spaties
+    license_plate = re.sub(r'\s+', ' ', license_plate)
+    
+    return license_plate
+
 
 @app.route('/upload_image', methods=['POST'])
 def upload_image():
     if 'image' not in request.files:
-        return jsonify({'error': 'No image uploaded'}), 400
-
-    file = request.files['image']
-    image = np.frombuffer(file.read(), np.uint8)
-    img = cv2.imdecode(image, cv2.IMREAD_COLOR)
-
-    # Stap 1: Preprocessing van de afbeelding
-    preprocessed_image = preprocess_image(img)
-
-    # Stap 2: Gebruik Tesseract voor OCR met aangepaste configuratie
-    custom_config = r'--oem 3 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
-    plate_text = pytesseract.image_to_string(preprocessed_image, config=custom_config)
-
-    # Verwerk de OCR-uitvoer
-    plate_text = filter_ocr_text(plate_text)
-    print(plate_text)
-
-    # Stap 3: Verwijder de landcode indien deze aanwezig is
-    for code in LANDCODES:
-        if plate_text.startswith(code):
-            plate_text = plate_text[len(code):].strip()
-            break
-
-    # Stap 4: Controleer of de nummerplaat langer is dan 10 tekens
-    if len(plate_text) > 10:
-        return jsonify({'error': 'De nummerplaat lijkt niet goed leesbaar of is te lang.'})
+        return jsonify({'error': 'No image file provided'}), 400
     
-    # Stap 5: Controleer of het een geldig nummerplaat formaat is
-    if not re.match(r'^[A-Z0-9]{6,10}$', plate_text):
-        return jsonify({'error': 'De nummerplaat heeft een onjuist formaat.'}), 400
+    image_file = request.files['image']
+    
+    try:
+        # Open de afbeelding met Pillow
+        image = Image.open(io.BytesIO(image_file.read()))
+        
+        # Converteer de afbeelding naar een numpy array
+        image_np = np.array(image)
+        
+        # Gebruik EasyOCR om tekst uit de afbeelding te halen
+        result = reader.readtext(image_np)
+        
+        # Verkrijg de tekst van de OCR-resultaten
+        text = ' '.join([r[1] for r in result])  # r[1] is de herkende tekst
+        #print('herkende text:', text)  # Debugging: print de herkende tekst
 
-    return jsonify({'nummerplaat': plate_text})
+        license_plate = extract_license_plate(text)
+        #print("Gevonden nummerplaat:", license_plate)  # Debugging: print de gevonden nummerplaat
+
+        if license_plate:
+            # Formatteer de nummerplaat
+            formatted_license_plate = format_license_plate(license_plate)
+            #print("Geformatteerde nummerplaat:", formatted_license_plate)  # Debugging: print de geformatteerde nummerplaat
+
+            # Retourneer de geformatteerde nummerplaat als JSON response
+            return jsonify({'nummerplaat': formatted_license_plate})
+        else:
+            return jsonify({'error': 'No license plate found'}), 404
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 @app.route('/verwijder_reservering', methods=['POST'])
@@ -495,7 +602,7 @@ def send_confirmation_email(reservering, nummerplaat, locatie, email):
         print(f"SMTP fout: {e}")
     except Exception as e:
         print(f"Onverwachte fout: {e}")
-        
+
 @app.route('/save_numberplate_time', methods=['POST'])
 def save_numberplate_time():
     data = request.get_json()

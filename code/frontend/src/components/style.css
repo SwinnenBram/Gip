@@ -1,19 +1,28 @@
+/* Zorg ervoor dat de achtergrond van de pagina lichtblauw is */
+body, html {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background-color: #f0f8ff; /* Lichtblauwe achtergrond */
+}
+
+/* De container moet de volledige hoogte van de pagina vullen en naar boven uitgelijnd zijn */
 .register-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start; /* Naar boven verschuiven */
-  min-height: 100vh;
-  background-color: #f0f8ff; /* Lichtblauw achtergrond */
-  padding: 20px;
-  padding-top: 50px; /* Extra padding bovenaan om meer naar boven te schuiven */
+  justify-content: flex-start; /* Begin de inhoud bij de bovenkant van de container */
+  min-height: 100vh; /* Vul de volledige hoogte van het scherm */
+  padding-top: 50px; /* Extra ruimte bovenaan zodat het niet te strak aan de bovenkant zit */
 }
 
+/* Kleur en marges voor de header */
 h2 {
   color: #0056b3; /* Donkerblauw voor de tekst */
   margin-bottom: 20px;
 }
 
+/* Stijlen voor het formulier */
 .register-form {
   display: flex;
   flex-direction: column;
@@ -26,6 +35,7 @@ h2 {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
+/* Stijlen voor de invoervelden */
 input {
   padding: 10px;
   font-size: 16px;
@@ -39,6 +49,7 @@ input:focus {
   border-color: #0056b3; /* Blauw randje bij focus */
 }
 
+/* Stijlen voor de inlogknop */
 button {
   padding: 10px 15px;
   font-size: 16px;
@@ -54,6 +65,7 @@ button:hover {
   background-color: #003f7f; /* Iets donkerder blauw bij hover */
 }
 
+/* Stijlen voor de logout knop */
 .logout-btn {
   padding: 10px 15px;
   font-size: 16px;
@@ -69,26 +81,10 @@ button:hover {
   background-color: #e56b3f; /* Donkerder oranje bij hover */
 }
 
+/* Stijlen voor de navigatiebalk items */
 .navbar-item {
   display: flex;
   align-items: center;
-}
-
-.logout-btn {
-  padding: 10px 15px;
-  font-size: 16px;
-  color: white;
-  background-color: #ff7f50; /* Koraal/oranje kleur */
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  transition: background-color 0.3s;
-  display: inline-block;  /* Zorgt ervoor dat het als een blok-element wordt behandeld */
-  text-align: center;     /* Zorgt ervoor dat de tekst in de knop gecentreerd wordt */
-}
-
-.logout-btn:hover {
-  background-color: #e56b3f; /* Donkerder oranje bij hover */
 }
 
 /* Nieuwe stijlen voor de tabel */

@@ -1,0 +1,30 @@
+als reservering gemaakt terug naar hoofd pagina x
+eind tijd standaard 1 uur verder zetten niet terug x start goed daarna zelf aan te passen
+inlog blauwe balk fixen x
+start up direct juiste pagina x half 
+nummerplaat naam veranderen + weg halen bij start x
+eventueel zorgen geen reservering met de zelfde nummerplaat op het zelfde moment 
+admin, in, uit ergens anders zetten? 
+info pagina? 
+direct opening en prijs bij start pagina x 
+mooiere bevestiging van reservatie x
+console logs weghalen (f12) 
+uitlog knop betere kleur  
+dashboard namen verbeteren? 
+logo maken? 
+na registreren terug sturen naar start pagina 
+voertuig pagina achtergrond fixen 
+verdieping naam fixen bij reservering pagina 
+in pagina duidelijker maken 
+quick reserveren error weg halen 
+quick reserveren dank bericht en daarna terug in pagina laten zien 
+uit pagina fixen duidelijker maken 
+uit pagina terug naar uit sturen 
+admin bezet juist rekenen, tel voertuigen in door database. 
+admin laten zien welke auto er in is en waar deze staat via database? 
+admin reserveringen netter tonen
+admin reserveringen met voltooid en nog gebeuren? 
+te lang actief dingen niet meer geladen, fix voor zoeken?
+
+
+

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
+import Swal from "sweetalert2";
 
 const PlaceReservation = () => {
     const [voertuigen, setVoertuigen] = useState([]);
@@ -26,10 +27,11 @@ const PlaceReservation = () => {
         }
         if (datum) {
             const defaultStarttijd = "12:00";
+            const defaultEindtijd = "13:00";
             setStarttijd(defaultStarttijd);
+            setEindtijd(defaultEindtijd);
             const startDate = new Date(`${datum}T${defaultStarttijd}`);
             startDate.setHours(startDate.getHours() + 1);
-            setEindtijd(startDate.toISOString().slice(11, 16));
         }
     }, [plaatsLocatie, datum]);
 
@@ -62,10 +64,10 @@ const PlaceReservation = () => {
     const handleReservering = async () => {
         const userId = localStorage.getItem('user_id');
         if (!userId) {
-            alert('Gebruiker is niet ingelogd');
+            Swal.fire("Fout", "Gebruiker is niet ingelogd", "error");
             return;
         }
-        
+
         const startDate = new Date(`${datum}T${starttijd}`);
         const endDate = new Date(`${datum}T${eindtijd}`);
         if ((endDate - startDate) < 3600000) {
@@ -86,28 +88,19 @@ const PlaceReservation = () => {
                 reservatieData,
                 { headers: { Authorization: `Bearer ${localStorage.getItem("token")}` } }
             );
-            alert("Reservering succesvol aangemaakt!");
+            Swal.fire({
+                title: "Reservering Succesvol!",
+                text: "U wordt teruggestuurd naar het dashboard...",
+                icon: "success",
+                timer: 5000,
+                showConfirmButton: false
+            }).then(() => {
+                navigate("/Dashboard");
+            });
         } catch (error) {
-            alert("Fout bij reservering.");
+            Swal.fire("Fout", "Fout bij reservering.", "error");
             console.error("Fout bij reserveren:", error);
         }
-    };
-
-    const handleEindtijdChange = (e) => {
-        const newEindtijd = e.target.value;
-        const startDate = new Date(`${datum}T${starttijd}`);
-        const endDate = new Date(`${datum}T${newEindtijd}`);
-
-        if ((endDate - startDate) < 3600000) {
-            setError("Eindtijd moet minstens 1 uur na de starttijd zijn.");
-        } else {
-            setError("");
-            setEindtijd(newEindtijd);
-        }
-    };
-
-    const handleBackClick = () => {
-        navigate(-1);
     };
 
     return (
@@ -132,10 +125,17 @@ const PlaceReservation = () => {
                 <input type="time" value={starttijd} onChange={(e) => setStarttijd(e.target.value)} className="mb-4 w-full p-2 border rounded" />
 
                 <label>Eindtijd</label>
-                <input type="time" value={eindtijd} onChange={handleEindtijdChange} className="mb-4 w-full p-2 border rounded" />
+                <input type="time" value={eindtijd} onChange={(e) => setEindtijd(e.target.value)} className="mb-4 w-full p-2 border rounded" />
 
                 <button className="mt-4 w-full p-2 bg-blue-500 text-white rounded" onClick={handleReservering}>Reserveren</button>
-                <button onClick={handleBackClick} className="mt-4 w-full p-2 bg-gray-500 text-white rounded">Terug</button>
+
+                {/* Terug-knop */}
+                <button
+                    className="mt-4 w-full p-2 bg-gray-500 text-white rounded"
+                    onClick={() => navigate(-1)} // Dit stuurt de gebruiker terug naar de vorige pagina
+                >
+                    Terug
+                </button>
             </div>
         </div>
     );

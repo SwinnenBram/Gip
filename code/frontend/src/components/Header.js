@@ -10,7 +10,7 @@ const Header = () => {
   const handleLogout = () => {
     // Verwijder de token uit localStorage en stuur de gebruiker naar de loginpagina
     localStorage.removeItem('token');
-    navigate('/login');
+    navigate('/');
   };
 
   return (
@@ -26,9 +26,6 @@ const Header = () => {
               </li>
               <li className="navbar-item">
                 <Link to="/login" className="navbar-link">Login</Link>
-              </li>
-              <li className="navbar-item">
-                <Link to="/nummerplaat" className="navbar-link">Nummerplaat</Link>
               </li>
             </>
           )}
@@ -46,10 +43,10 @@ const Header = () => {
                 <Link to="/reservation" className="navbar-link">Reservering</Link> {/* Link naar Reservation toegevoegd */}
               </li>
               <li className="navbar-item">
-                <Link to="/nummerplaat" className="navbar-link">nummerplaat</Link> {/* Link naar Reservation toegevoegd */}
+                <Link to="/nummerplaat" className="navbar-link">In</Link> {/* Link naar Reservation toegevoegd */}
               </li>
               <li className="navbar-item">
-                <Link to="/checknummerplaat" className="navbar-link">uit</Link> {/* Link naar Reservation toegevoegd */}
+                <Link to="/checknummerplaat" className="navbar-link">Uit</Link> {/* Link naar Reservation toegevoegd */}
               </li>
               <li className="navbar-item">
                 <Link to="/AdminDashboard" className="navbar-link">Admin</Link> {/* Link naar nummerplaat toegevoegd */}
