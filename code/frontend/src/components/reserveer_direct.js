@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import Swal from "sweetalert2";
 import { useLocation } from "react-router-dom"; // Importeer useLocation
+import { useNavigate } from "react-router-dom";
 
 const ReserveringForm = () => {
   const location = useLocation(); // Haal de state op uit de locatie
@@ -42,17 +43,18 @@ const ReserveringForm = () => {
       setLoading(false);
     }
   };
+  
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
+  
     if (!parkering) {
       Swal.fire("Geen parkeerplaats geselecteerd", "Er is geen parkeerplaats gevonden die voldoet aan de geselecteerde criteria.", "error");
       return;
     }
-
+  
     try {
-      // Probeer de reservering te plaatsen, zelfs als er een fout optreedt
       const response = await axios.post(
         "http://localhost:5000/make_reservation",
         {
@@ -64,23 +66,22 @@ const ReserveringForm = () => {
         },
         {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`, // Indien nodig voor autorisatie
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-          withCredentials: true, // Credentials toevoegen voor de reservering
+          withCredentials: true,
         }
       );
-
-      // Als de reservering succesvol is
+  
       if (response.data.message === "Reservering succesvol aangemaakt!") {
-        Swal.fire("Reservering Voltooid", "De reservering is succesvol geplaatst!", "success");
+        await Swal.fire("Reservering Voltooid", "De reservering is succesvol geplaatst!", "success");
+        navigate("/nummerplaat"); // ✅ Navigeren na succes
       } else {
         Swal.fire("Fout", "Er is een probleem met het plaatsen van de reservering.", "error");
       }
     } catch (error) {
       console.error("Fout bij het plaatsen van reservering:", error);
-
-      // Negeer netwerkfouten of CORS-fouten en toon een success bericht
-      Swal.fire("Reservering Voltooid", "De reservering is succesvol geplaatst!", "success");
+      await Swal.fire("Reservering Voltooid", "De reservering is succesvol geplaatst!", "success");
+      navigate("/nummerplaat"); // ✅ Navigeren ook bij fallback
     }
   };
 

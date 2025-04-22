@@ -34,12 +34,12 @@ const HomePage = () => {
 
       <h2>📲 Find us on Socials</h2>
         <p>
-          <a href="smartparking" target="_blank" rel="noopener noreferrer" style={{ margin: '0 10px', textDecoration: 'none' }}>
+          <a href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer" style={{ margin: '0 10px', textDecoration: 'none' }}>
             <span role="img" aria-label="Instagram">📷</span> Instagram: SmartParking
           </a>
         </p>
         <p>
-          <a href="smartparking" target="_blank" rel="noopener noreferrer" style={{ margin: '0 10px', textDecoration: 'none' }}>
+          <a href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer" style={{ margin: '0 10px', textDecoration: 'none' }}>
             <span role="img" aria-label="Facebook">📘</span> Facebook: SmartParking
           </a>
         </p>
