@@ -119,20 +119,20 @@ pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tessera
 reader = easyocr.Reader(['en'])  # 'en' is voor Engels, je kunt meer talen toevoegen zoals 'nl', 'fr', etc.
 
 # Reguliere expressies voor nummerplaten, met spaties, streepjes, en speciale tekens toegestaan
-BELGIUM_PLATE_REGEX = r"\d{1}\s*-?\s*[A-Za-z]{3}\s*-?\s*\d{3}"  # België nummerplaat (oude formaat)
+BELGIUM_PLATE_REGEX = r"\d{1}\s*-?\s*[A-Za-z]{3}\s*-?\s*\d{3}"   # België nummerplaat (oude formaat)
 BELGIUM_PLATE_REGEX_V2 = r"\d{1}\s*-?\s*[A-Za-z]{2}\s*-?\s*\d{4}"  # Alternatief Belgisch formaat voor oldtimers
 
 NETHERLANDS_PLATE_REGEX = r"[A-Za-z]{2}\s*-?\s*\d{2}\s*-?\s*\d{2}"  # Nederland nummerplaat (format 1)
 NETHERLANDS_PLATE_REGEX2 = r"\d{2}\s*-?\s*\d{2}\s*-?\s*[A-Za-z]{2}"  # Nederland nummerplaat (format 2)
 NETHERLANDS_PLATE_REGEX3 = r"\d{2}\s*-?\s*[A-Za-z]{2}\s*-?\s*\d{2}"  # Nederland nummerplaat (format 3)
-NETHERLANDS_PLATE_REGEX21 = r"[A-Za-z]\s*\d{3}\s*[A-Za-z]{2}"  # A 123 BC
-NETHERLANDS_PLATE_REGEX22 = r"[A-Za-z]{2}\s*\d{3}\s*[A-Za-z]"  # AB 123 C
+NETHERLANDS_PLATE_REGEX21 = r"[A-Za-z]\s*\d{3}\s*[A-Za-z]{2}"        # A 123 BC
+NETHERLANDS_PLATE_REGEX22 = r"[A-Za-z]{2}\s*\d{3}\s*[A-Za-z]"        # AB 123 C
 
 FRANCE_PLATE_REGEX = r"[A-Za-z]{2}\s*-?\s*\d{3}\s*-?\s*[A-Za-z]{2}"  # Franse nummerplaat met spaties en streepjes
-FRANCE_PLATE_REGEX2 = r"\d{3}\s*-?\s*[A-Za-z]{3}\s*-?\s*\d{2}"  # Frankrijk nummerplaat (format 2)
+FRANCE_PLATE_REGEX2 = r"\d{3}\s*-?\s*[A-Za-z]{3}\s*-?\s*\d{2}"       # Frankrijk nummerplaat (format 2)
 
-GERMANY_PLATE_REGEX = r"[A-Za-z]{1,3}-\d{1,4}"  # Duitsland nummerplaat (format 1)
-GERMANY_PLATE_REGEX2 = r"[A-Za-z]{1,3}-[A-Za-z]{1,2} \d{1,4}"  # Duitsland nummerplaat (format 2)
+GERMANY_PLATE_REGEX = r"[A-Za-z]{1,3}-\d{1,4}"                       # Duitsland nummerplaat (format 1)
+GERMANY_PLATE_REGEX2 = r"[A-Za-z]{1,3}-[A-Za-z]{1,2} \d{1,4}"        # Duitsland nummerplaat (format 2)
 
 # Functie om ongewenste tekens (zoals #, ., -, etc.) te verwijderen
 def clean_text(text):
@@ -240,8 +240,8 @@ def format_license_plate(license_plate):
     license_plate = license_plate.upper()
 
     # Belgische nummerplaat
-    if re.match(r"\d{1}\s*[A-Za-z]{3}\s*\d{3}", license_plate):
-        license_plate = re.sub(r"(\d)([A-Za-z]{3})(\d{3})", r"\1 \2 \3", license_plate)
+    if re.match(r"\d\s*[A-Za-z]{3}\s*\d{3}", license_plate):
+        license_plate = re.sub(r"(\d)\s*([A-Za-z]{3})\s*(\d{3})", r"\1 \2 \3", license_plate)
     
     # Nederlandse nummerplaat (format 1: 22 DA 89)
     elif re.match(r"\d{2}\s*[A-Za-z]{2}\s*\d{2}", license_plate):
@@ -1007,7 +1007,6 @@ def create_reservatie():
 
         db.session.add(reservatie)
         db.session.commit()
-
         gebruiker = Gebruiker.query.get(gebruiker_id)
         if gebruiker and gebruiker.email:
             send_reservation_email(

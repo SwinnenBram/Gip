@@ -138,7 +138,7 @@ const Parkeerplaatsen = () => {
 
     return (
         <div className="container">
-            <h1 className="title">Parkeerplaatsen - Zone {zone} (Verdieping {verdieping})</h1>
+            <h1 className="title">Parkeerplaatsen - Zone {zone}</h1>
             <p>Geselecteerde datum: {datum}</p>
             {error && <p className="error">{error}</p>}
             {infoMessage && <p className="info-message">{infoMessage}</p>} {/* Info bericht tonen */}
